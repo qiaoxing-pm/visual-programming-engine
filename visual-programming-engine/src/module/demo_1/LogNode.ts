@@ -1,6 +1,6 @@
 export default class LogNode {
     id = "log";
-
+    name = "Log1";
     message: string;
 
     constructor(message: string) {

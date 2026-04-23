@@ -1,4 +1,4 @@
-import StartNode from "./StartNode";
+import StartNode from "./Node";
 
 export default async function run(start: StartNode) {
     let current: any = start;

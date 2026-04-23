@@ -50,7 +50,6 @@ import EventSource from '../event/EventSource';
 import SelectionHandler from './SelectionHandler';
 import SelectionCellsHandler from './SelectionCellsHandler';
 import { VertexHandlerConfig } from './config';
-import { off } from 'process';
 import EventObject from '../event/EventObject';
 
 /**

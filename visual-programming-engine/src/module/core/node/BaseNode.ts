@@ -1,9 +1,13 @@
 import { InputPort, OutputPort } from "../port/Port.js";
 import type { ValueType, INamed } from "../type.js";
+import { assertNodeMutableByCommand } from "../../state/StateRules.js";
 
 abstract class BaseNode implements INamed {
     id: string;
     name: string;
+    x = 0;
+    y = 0;
+    hasLayoutPosition = false;
 
     inputs: InputPort[] = [];
     outputs: OutputPort[] = [];
@@ -28,6 +32,17 @@ abstract class BaseNode implements INamed {
         const port = new OutputPort(name, type, this.id);
         this.outputs.push(port);
         return port;
+    }
+
+    applyPositionPatch(patch: { x?: number; y?: number }) {
+        assertNodeMutableByCommand("BaseNode.applyPositionPatch");
+        if (patch.x !== undefined) {
+            this.x = patch.x;
+        }
+        if (patch.y !== undefined) {
+            this.y = patch.y;
+        }
+        this.hasLayoutPosition = true;
     }
 
     abstract execute(): Promise<any>;
