@@ -6,8 +6,8 @@ import { mountNode, removeNode } from "./commands.js";
 import { applyDefaultNodePosition, deriveNodeViewModel } from "../../layout/NodeLayout.js";
 import { runInCommandContext } from "../../state/StateRules.js";
 import CanvasRenderer from "../../renderer/canvas/CanvasRenderer.js";
+import ConnectionBehavior from "../../interaction/ConnectionBehavior.js";
 import NodeViewModel from "../../view-model/NodeViewModel.js";
-
 
 
 class CanvasAdapter {
@@ -22,6 +22,7 @@ class CanvasAdapter {
     private dirtyNodeIds = new Set<string>();
     private commitEvents = new EventTarget();
     private flushScheduled = false;
+    private readonly connectionBehavior = new ConnectionBehavior();
 
     constructor() {
         this.commitEvents.addEventListener("viewmodel:dirty", () => {
@@ -35,6 +36,7 @@ class CanvasAdapter {
 
     applyCanvas(graph: Graph) {
         this.graph = graph;
+        this.connectionBehavior.bind(graph, (cell) => this.getNodeByCell(cell));
     }
 
     execute(command: CanvasCommand) {
@@ -138,6 +140,7 @@ class CanvasAdapter {
             this.execute(mountNode(nodeId));
         }
     }
+
 }
 
 

@@ -15,7 +15,7 @@ start.addOutput("output2", "string");
 start.addOutput("output3", "string");
 
 const end = new Node('321');
-end.addInput("input1", "string");
+end.addInput("input1", "number");
 end.addInput("input2", "string");
 end.addInput("input3", "string");
 end.addInput("input4", "string");
