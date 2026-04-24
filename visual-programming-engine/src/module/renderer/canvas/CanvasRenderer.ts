@@ -53,8 +53,6 @@ export default class CanvasRenderer {
             );
             nodeCellMap.set(node.id, cell);
             cellNodeMap.set(cell, node);
-
-            cell.connectable = false;
         }
         this.syncNodePosition(graph, cell, viewModel);
         this.syncNodePorts(graph, node, cell, nodePortCellMap, cellNodeMap);

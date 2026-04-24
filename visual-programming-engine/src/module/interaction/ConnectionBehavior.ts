@@ -32,11 +32,16 @@ type PortConnectionMetadata = {
 
 export default class ConnectionBehavior {
     private isValidConnectionBase: ((source: Cell | null, target: Cell | null) => boolean) | null = null;
+    private isCellConnectableBase: ((cell: Cell) => boolean) | null = null;
     private boundGraph: Graph | null = null;
 
     bind(graph: Graph, getNodeByCell: (cell: Cell) => BaseNode | null) {
+        const graphWithCellConnectable = graph as Graph & {
+            isCellConnectable: (cell: Cell) => boolean;
+        };
         if (this.boundGraph !== graph) {
             this.isValidConnectionBase = graph.isValidConnection.bind(graph);
+            this.isCellConnectableBase = graphWithCellConnectable.isCellConnectable.bind(graph);
             this.applyDefaultEdgeStyle(graph);
             this.applyConnectionPreviewStyle(graph);
             this.applyEdgeWaypointBehavior(graph);
@@ -45,6 +50,16 @@ export default class ConnectionBehavior {
 
         graph.setConnectable(true);
         graph.setAllowDanglingEdges(false);
+        graphWithCellConnectable.isCellConnectable = (cell) => {
+            if (!cell) {
+                return false;
+            }
+            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell) !== null;
+            if (!isPort) {
+                return false;
+            }
+            return this.isCellConnectableBase?.(cell) ?? true;
+        };
         graph.isValidConnection = (source, target) => {
             const sourcePort = this.resolvePortConnectionMetadata(source, getNodeByCell);
             const targetPort = this.resolvePortConnectionMetadata(target, getNodeByCell);
