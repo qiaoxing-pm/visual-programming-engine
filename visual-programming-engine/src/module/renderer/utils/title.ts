@@ -1,0 +1,1 @@
+export const createTitleKey = (nodeId: string) => `title:${nodeId}`;

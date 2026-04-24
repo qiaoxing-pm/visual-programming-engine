@@ -1,5 +1,5 @@
 import Node from "../../Node.js";
-const PID = new Node('PID');
+const PID = new Node('PID','PID');
 
 
 PID.addOutput("AUTO", "string");

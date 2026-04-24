@@ -4,6 +4,7 @@ import type { Graph } from "../../packages/maxGraph/core/src/index.js";
 import type NodeViewModel from "../../view-model/NodeViewModel.js";
 import type { SceneState } from "../../state/SceneState.js";
 import { releaseNodePorts, syncNodePorts } from "./PortRenderer.js";
+import { releaseNodeCellTitles, syncNodeCellTitles } from "./CellTitleRenderer.js";
 import { updateCellPosition } from "../utils/canvasGraphOps.js";
 import type { CellStyle } from "../../packages/maxGraph/core/src/index.js";
 
@@ -21,7 +22,7 @@ const nodeStyle: CellStyle = {
     fontColor: "#fff",
     fontSize: 8,
     spacingRight: 6,
-    rounded: true,          // ✅ 开启圆角
+    rounded: true,
     arcSize: 12,
 };
 
@@ -49,11 +50,19 @@ export function syncNode(
     }
     syncNodePosition(graph, cell, viewModel);
     const { added, removed } = syncNodePorts(graph, node, cell, sceneState);
+    const { added: titleAdded, removed: titleRemoved } = syncNodeCellTitles(graph, node, cell, sceneState);
     for (const portCell of added) {
         sceneState.cellNodeMap.set(portCell, node);
     }
     for (const portCell of removed) {
         sceneState.cellNodeMap.delete(portCell);
+    }
+
+    for (const titleCell of titleAdded) {
+        sceneState.cellNodeMap.set(titleCell, node);
+    }
+    for (const titleCell of titleRemoved) {
+        sceneState.cellNodeMap.delete(titleCell);
     }
     return cell;
 }
@@ -69,6 +78,10 @@ export function unmountNode(graph: Graph, node: BaseNode, sceneState: SceneState
     const portCells = releaseNodePorts(node.id, sceneState);
     for (const portCell of portCells) {
         sceneState.cellNodeMap.delete(portCell);
+    }
+    const titleCells = releaseNodeCellTitles(node.id, sceneState);
+    for (const titleCell of titleCells) {
+        sceneState.cellNodeMap.delete(titleCell);
     }
 }
 

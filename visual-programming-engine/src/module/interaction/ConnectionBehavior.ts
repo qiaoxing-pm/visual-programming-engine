@@ -32,8 +32,10 @@ type PortConnectionMetadata = {
 
 export default class ConnectionBehavior {
     private isValidConnectionBase: ((source: Cell | null, target: Cell | null) => boolean) | null = null;
+    private isValidSourceBase: ((cell: Cell | null) => boolean) | null = null;
     private isCellConnectableBase: ((cell: Cell) => boolean) | null = null;
     private boundGraph: Graph | null = null;
+    private nodeResolver: ((cell: Cell) => BaseNode | null) | null = null;
 
     bind(graph: Graph, getNodeByCell: (cell: Cell) => BaseNode | null) {
         const graphWithCellConnectable = graph as Graph & {
@@ -41,6 +43,7 @@ export default class ConnectionBehavior {
         };
         if (this.boundGraph !== graph) {
             this.isValidConnectionBase = graph.isValidConnection.bind(graph);
+            this.isValidSourceBase = graph.isValidSource.bind(graph);
             const baseIsCellConnectable = (graph as unknown as { isCellConnectable?: (cell: Cell) => boolean }).isCellConnectable;
             this.isCellConnectableBase =
                 typeof baseIsCellConnectable === "function"
@@ -49,11 +52,20 @@ export default class ConnectionBehavior {
             this.applyDefaultEdgeStyle(graph);
             this.applyConnectionPreviewStyle(graph);
             this.applyEdgeWaypointBehavior(graph);
+            this.applyEdgeDirectionStyle(graph);
             this.boundGraph = graph;
         }
+        this.nodeResolver = getNodeByCell;
 
         graph.setConnectable(true);
         graph.setAllowDanglingEdges(false);
+        graph.isValidSource = (cell) => {
+            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell) !== null;
+            if (!isPort) {
+                return false;
+            }
+            return this.isValidSourceBase?.(cell) ?? true;
+        };
         graphWithCellConnectable.isCellConnectable = (cell) => {
             if (!cell) {
                 return false;
@@ -103,13 +115,32 @@ export default class ConnectionBehavior {
 
         connectionHandler.livePreview = true;
         connectionHandler.createEdgeState = () => {
+            const sourceCell = connectionHandler.previous?.cell ?? null;
+            const sc = this.getDirectionScalarBySourceCell(sourceCell);
             const edge = graph.createEdge(null, "", null, null, null, {
                 shape: BEZIER_EDGE_SHAPE_NAME,
                 startArrow: "none",
                 endArrow: "none",
-            });
+                sc,
+            } as any);
             return new CellState(graph.getView(), edge, graph.getCellStyle(edge));
         };
+    }
+
+    private applyEdgeDirectionStyle(graph: Graph) {
+        graph.addListener(InternalEvent.CONNECT, (_, evt) => {
+            const edge = evt.getProperty("cell") as Cell | null;
+            if (!edge) {
+                return;
+            }
+            const sourceCell = edge.getTerminal(true);
+            const sc = this.getDirectionScalarBySourceCell(sourceCell);
+            const style = edge.getStyle();
+            graph.getDataModel().setStyle(edge, {
+                ...style,
+                sc,
+            } as any);
+        });
     }
 
     private applyEdgeWaypointBehavior(graph: Graph) {
@@ -167,5 +198,17 @@ export default class ConnectionBehavior {
         }
 
         return null;
+    }
+
+    private getDirectionScalarBySourceCell(sourceCell: Cell | null): 1 | -1 {
+        if (!sourceCell || !this.nodeResolver) {
+            return 1;
+        }
+        const sourceMetadata = this.resolvePortConnectionMetadata(sourceCell, this.nodeResolver);
+        if (!sourceMetadata) {
+            return 1;
+        }
+        // Keep existing default for input; reverse direction for output-start edges.
+        return sourceMetadata.direction === "output" ? -1 : 1;
     }
 }

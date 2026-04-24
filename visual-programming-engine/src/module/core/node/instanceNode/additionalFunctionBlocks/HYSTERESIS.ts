@@ -1,5 +1,5 @@
 import Node from "../../Node.js";
-const HYSTERESIS = new Node('HYSTERESIS');
+const HYSTERESIS = new Node('HYSTERESIS','HYSTERESIS');
 
 
 HYSTERESIS.addOutput("XIN1", "string");

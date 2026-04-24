@@ -1,5 +1,5 @@
 import Node from "../../Node.js";
-const DERIVATIVE = new Node('DERIVATIVE');
+const DERIVATIVE = new Node('DERIVATIVE', 'DERIVATIVE');
 
 
 DERIVATIVE.addOutput("RUN", "string");

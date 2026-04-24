@@ -1,5 +1,5 @@
 import Node from "../../Node.js";
-const RAMP = new Node('RAMP');
+const RAMP = new Node('RAMP',"RAMP");
 
 
 RAMP.addOutput("RUN", "string");

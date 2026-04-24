@@ -1,5 +1,5 @@
 import Node from "../../Node.js";
-const RTC = new Node('RTC');
+const RTC = new Node('RTC',"RTC");
 
 
 RTC.addOutput("IN", "string");
