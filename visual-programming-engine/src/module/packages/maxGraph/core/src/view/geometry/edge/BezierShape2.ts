@@ -67,8 +67,10 @@ class BezierShape extends Shape {
     drawBezier(c: AbstractCanvas2D, pts: Point[]): void {
       if (!this.cellState) return;
       const cellStyle = this.cellState.style as any;
-      let sc = cellStyle.sc || 1; // 默认方向朝右
-      const scale = this.scale;
+      // Keep edge tangent direction stable from source side.
+      // Do not recompute from dragged waypoint positions, otherwise
+      // crossing over may flip the output-side curve direction.
+      const sc = (cellStyle.sc || 1) as 1 | -1;
       const edge = this.cellState.cell;
       const source = edge.source;
       let drawCircle = source && source.isEdge();
@@ -83,13 +85,6 @@ class BezierShape extends Shape {
       for (let i = 0; i < pts.length - 1; i++) {
         const p0 = pts[i];
         const p1 = pts[i + 1];
-        if (i >= 1 && i <= pts.length - 2) {
-          if (p1.x >= p0.x) {
-            sc = 1;
-          } else {
-            sc = -1;
-          }
-        }
         c.begin();
         c.setStrokeColor(this.stroke);
         c.drawLinkPath(p0.x, p0.y, p1.x, p1.y, sc);
