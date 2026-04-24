@@ -30,6 +30,8 @@ export default function Demo2() {
 
         const graph = new Graph(host);
         const adapter = new CanvasAdapter();
+        adapter.applyCanvas(graph);
+
         const nodes = [
             TCP_CONNECT,
             RTC,
@@ -41,7 +43,6 @@ export default function Demo2() {
         ]
 
         nodes.forEach(node => {
-            adapter.applyCanvas(graph);
             adapter.execute(createNode(node));
             adapter.execute(mountNode(node.id));
 

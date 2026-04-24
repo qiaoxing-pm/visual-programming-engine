@@ -1,7 +1,12 @@
 import type BaseNode from "../core/node/BaseNode.js";
 import type { Cell } from "../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../packages/maxGraph/core/src/index.js";
-import { BezierShape, CellRenderer } from "../packages/maxGraph/core/src/index.js";
+import { CellRenderer } from "../packages/maxGraph/core/src/index.js";
+import type ConnectionHandler from "../packages/maxGraph/core/src/view/handler/ConnectionHandler.js";
+import CellState from "../packages/maxGraph/core/src/view/cell/CellState.js";
+// import BezierShape from "../packages/maxGraph/core/src/view/geometry/edge/BezierShape.js";
+import BezierShape2 from "../packages/maxGraph/core/src/view/geometry/edge/BezierShape2.js";
+// import CellRenderer from "../packages/maxGraph/core/src/view/cell/CellRenderer.js";
 import { createInputPortKey, createOutputPortKey } from "../renderer/utils/port.js";
 
 const BEZIER_EDGE_SHAPE_NAME = "bezier";
@@ -11,7 +16,7 @@ function ensureBezierShapeRegistered() {
     if (isBezierShapeRegistered) {
         return;
     }
-    CellRenderer.registerShape(BEZIER_EDGE_SHAPE_NAME, BezierShape);
+    CellRenderer.registerShape(BEZIER_EDGE_SHAPE_NAME, BezierShape2);
     isBezierShapeRegistered = true;
 }
 
@@ -30,10 +35,12 @@ export default class ConnectionBehavior {
         if (this.boundGraph !== graph) {
             this.isValidConnectionBase = graph.isValidConnection.bind(graph);
             this.applyDefaultEdgeStyle(graph);
+            this.applyConnectionPreviewStyle(graph);
             this.boundGraph = graph;
         }
 
         graph.setConnectable(true);
+        graph.setAllowDanglingEdges(false);
         graph.isValidConnection = (source, target) => {
             const sourcePort = this.resolvePortConnectionMetadata(source, getNodeByCell);
             const targetPort = this.resolvePortConnectionMetadata(target, getNodeByCell);
@@ -62,6 +69,24 @@ export default class ConnectionBehavior {
         defaultEdgeStyle.shape = BEZIER_EDGE_SHAPE_NAME;
         defaultEdgeStyle.startArrow = "none";
         defaultEdgeStyle.endArrow = "none";
+    }
+
+    private applyConnectionPreviewStyle(graph: Graph) {
+        ensureBezierShapeRegistered();
+        const connectionHandler = graph.getPlugin<ConnectionHandler>("ConnectionHandler");
+        if (!connectionHandler) {
+            return;
+        }
+
+        connectionHandler.livePreview = true;
+        connectionHandler.createEdgeState = () => {
+            const edge = graph.createEdge(null, "", null, null, null, {
+                shape: BEZIER_EDGE_SHAPE_NAME,
+                startArrow: "none",
+                endArrow: "none",
+            });
+            return new CellState(graph.getView(), edge, graph.getCellStyle(edge));
+        };
     }
 
     private resolvePortConnectionMetadata(

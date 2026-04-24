@@ -5,6 +5,7 @@ import { assertNodeMutableByCommand } from "../../state/StateRules.js";
 abstract class BaseNode implements INamed {
     id: string;
     name: string;
+    type: string;
     x = 0;
     y = 0;
     hasLayoutPosition = false;
@@ -16,9 +17,9 @@ abstract class BaseNode implements INamed {
 
     index: number = 0;
 
-    constructor(name: string) {
+    constructor(type: string, name: string) {
         this.id = crypto.randomUUID();
-
+        this.type = type;
         this.name = name;
     }
 

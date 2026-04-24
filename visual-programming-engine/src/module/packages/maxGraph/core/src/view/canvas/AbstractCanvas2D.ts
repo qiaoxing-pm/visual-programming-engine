@@ -111,6 +111,11 @@ abstract class AbstractCanvas2D {
   curveOp = 'C';
 
   /**
+   * Contains the string used for bezier curves. Default is 'C'.
+   */
+  smoothCurveto = 'S';
+
+  /**
    * Holds the operator for closing curves. Default is 'Z'.
    */
   closeOp = 'Z';
@@ -470,10 +475,131 @@ abstract class AbstractCanvas2D {
   }
 
   /**
+   * Adds a curve path from origin to destination.
+   */
+  drawLinkPath(origX: number, origY: number, destX: number,
+               destY: number, sc: 1 | -1, scale = 0.75, hasStatus: boolean = false)  {
+
+    const dy = destY - origY;
+    const dx = destX - origX;
+    const node_width = 100;
+    const node_height = 30;
+    const delta = Math.sqrt(dy * dy + dx * dx);
+
+    let scaleY = 0;
+
+    if (dx * sc > 0) {
+      if (delta < node_width) {
+        scale = 0.75 - 0.75 * ((node_width - delta) / node_width);
+      }
+    } else {
+      scale = 0.4 - 0.2 * (Math.max(0, node_width - Math.min(Math.abs(dx), Math.abs(dy))) / node_width);
+    }
+
+    if (dx * sc > 0) {
+      const cp: [number, number][] = [
+        [origX + sc * node_width * scale, origY + scaleY * node_height],
+        [destX - sc * scale * node_width, destY - scaleY * node_height]
+      ];
+      this.moveTo(origX, origY);
+      this.curveTo(cp[0][0], cp[0][1], cp[1][0], cp[1][1], destX, destY);
+      // console.log(origX, origY, cp[0][0], cp[0][1], cp[1][0], cp[1][1], destX, destY);
+      // return `M ${origX} ${origY} C ${cp[0][0]} ${cp[0][1]} ${cp[1][0]} ${cp[1][1]} ${destX} ${destY}`;
+    } else {
+      let cp: [number, number][];
+      const midX = Math.floor(destX - dx / 2);
+      const midY = Math.floor(destY - dy / 2);
+
+      if (Math.abs(dy) < 10) {
+        const bottomY = Math.max(origY, destY) + (hasStatus ? 35 : 25);
+        const startCurveHeight = bottomY - origY;
+        const endCurveHeight = bottomY - destY;
+
+        cp = [
+          [origX + sc * 15, origY],
+          [origX + sc * 25, origY + 5],
+          [origX + sc * 25, origY + startCurveHeight / 2],
+
+          [origX + sc * 25, origY + startCurveHeight - 5],
+          [origX + sc * 15, origY + startCurveHeight],
+          [origX, origY + startCurveHeight],
+
+          [destX - sc * 15, origY + startCurveHeight],
+          [destX - sc * 25, origY + startCurveHeight - 5],
+          [destX - sc * 25, destY + endCurveHeight / 2],
+
+          [destX - sc * 25, destY + 5],
+          [destX - sc * 15, destY],
+          [destX, destY]
+        ];
+        this.moveTo(origX, origY);
+        this.curveTo(cp[0][0], cp[0][1], cp[1][0], cp[1][1], cp[2][0], cp[2][1]);
+        this.curveTo(cp[3][0], cp[3][1], cp[4][0], cp[4][1], cp[5][0], cp[5][1]);
+        this.lineTo(cp[5][0] + dx, cp[5][1]);
+        this.curveTo(cp[6][0], cp[6][1], cp[7][0], cp[7][1], cp[8][0], cp[8][1]);
+        this.curveTo(cp[9][0], cp[9][1], cp[10][0], cp[10][1], cp[11][0], cp[11][1]);
+        // return `M ${origX} ${origY}` +
+        //   ` C ${cp[0][0]} ${cp[0][1]} ${cp[1][0]} ${cp[1][1]} ${cp[2][0]} ${cp[2][1]}` +
+        //   ` C ${cp[3][0]} ${cp[3][1]} ${cp[4][0]} ${cp[4][1]} ${cp[5][0]} ${cp[5][1]}` +
+        //   ` h ${dx}` +
+        //   ` C ${cp[6][0]} ${cp[6][1]} ${cp[7][0]} ${cp[7][1]} ${cp[8][0]} ${cp[8][1]}` +
+        //   ` C ${cp[9][0]} ${cp[9][1]} ${cp[10][0]} ${cp[10][1]} ${cp[11][0]} ${cp[11][1]}`;
+      } else {
+        const cpHeight = node_height / 2;
+        const y1 = (destY + midY) / 2;
+
+        const topX = origX + sc * node_width * scale;
+        const topY = dy > 0
+          ? Math.min(y1 - dy / 2, origY + cpHeight)
+          : Math.max(y1 - dy / 2, origY - cpHeight);
+
+        const bottomX = destX - sc * node_width * scale;
+        const bottomY = dy > 0
+          ? Math.max(y1, destY - cpHeight)
+          : Math.min(y1, destY + cpHeight);
+
+        const x1 = (origX + topX) / 2;
+        const scy = dy > 0 ? 1 : -1;
+
+        cp = [
+          [x1, origY],
+          [topX, dy > 0 ? Math.max(origY, topY - cpHeight) : Math.min(origY, topY + cpHeight)],
+          [x1, dy > 0 ? Math.min(midY, topY + cpHeight) : Math.max(midY, topY - cpHeight)],
+          [bottomX, dy > 0 ? Math.max(midY, bottomY - cpHeight) : Math.min(midY, bottomY + cpHeight)],
+          [(destX + bottomX) / 2, destY]
+        ];
+
+        if (cp[2][1] === topY + scy * cpHeight) {
+          if (Math.abs(dy) < cpHeight * 10) {
+            cp[1][1] = topY - scy * cpHeight / 2;
+            cp[3][1] = bottomY - scy * cpHeight / 2;
+          }
+          cp[2][0] = topX;
+        }
+        this.moveTo(origX, origY);
+        this.curveTo(cp[0][0], cp[0][1], cp[1][0], cp[1][1], topX, topY);
+        this.smoothCurveTo(cp[2][0], cp[2][1], midX, midY);
+        this.smoothCurveTo(cp[3][0], cp[3][1], bottomX, bottomY);
+        this.smoothCurveTo(cp[4][0], cp[4][1], destX, destY);
+        // `M ${origX} ${origY}` +
+        //   ` C ${cp[0][0]} ${cp[0][1]} ${cp[1][0]} ${cp[1][1]} ${topX} ${topY}` +
+        //   ` S ${cp[2][0]} ${cp[2][1]} ${midX} ${midY}` +
+        //   ` S ${cp[3][0]} ${cp[3][1]} ${bottomX} ${bottomY}` +
+        //   ` S ${cp[4][0]} ${cp[4][1]} ${destX} ${destY}`;
+      }
+    }
+  }
+
+  /**
    * Adds a bezier curve to the current path.
    */
   curveTo(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number) {
     this.addOp(this.curveOp, x1, y1, x2, y2, x3, y3);
+  }
+
+  smoothCurveTo(x2: number, y2: number, x: number, y: number) {
+    // Uses the last point as the first control point
+    this.addOp(this.smoothCurveto, x2, y2, x, y);
   }
 
   drawCircle(x: number, y: number, radius: number) {

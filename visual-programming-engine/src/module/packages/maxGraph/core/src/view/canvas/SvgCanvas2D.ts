@@ -282,9 +282,8 @@ class SvgCanvas2D extends AbstractCanvas2D {
       ofl: string
     ) => void
   ) => {
-    let item = `box-sizing: border-box; font-size: 0; text-align: ${
-      align === ALIGN.LEFT ? 'left' : align === ALIGN.RIGHT ? 'right' : 'center'
-    }; `;
+    let item = `box-sizing: border-box; font-size: 0; text-align: ${align === ALIGN.LEFT ? 'left' : align === ALIGN.RIGHT ? 'right' : 'center'
+      }; `;
     const pt = getAlignmentAsPoint(align, valign);
     let ofl = 'overflow: hidden; ';
     let fw = 'width: 1px; ';
@@ -1280,20 +1279,18 @@ class SvgCanvas2D extends AbstractCanvas2D {
       clip,
       this.state.fontBackgroundColor != null ? this.state.fontBackgroundColor : null,
       this.state.fontBorderColor != null ? this.state.fontBorderColor : null,
-      `display: flex; align-items: unsafe ${
-        valign === ALIGN.TOP
-          ? 'flex-start'
-          : valign === ALIGN.BOTTOM
-            ? 'flex-end'
-            : 'center'
+      `display: flex; align-items: unsafe ${valign === ALIGN.TOP
+        ? 'flex-start'
+        : valign === ALIGN.BOTTOM
+          ? 'flex-end'
+          : 'center'
       }; ` +
-        `justify-content: unsafe ${
-          align === ALIGN.LEFT
-            ? 'flex-start'
-            : align === ALIGN.RIGHT
-              ? 'flex-end'
-              : 'center'
-        }; `,
+      `justify-content: unsafe ${align === ALIGN.LEFT
+        ? 'flex-start'
+        : align === ALIGN.RIGHT
+          ? 'flex-end'
+          : 'center'
+      }; `,
       this.getTextCss(),
       s,
       (dx, dy, flex, item, block) => {
@@ -1363,10 +1360,8 @@ class SvgCanvas2D extends AbstractCanvas2D {
       : LINE_HEIGHT * this.lineHeightCorrection;
     let css =
       `display: inline-block; font-size: ${s.fontSize}px; ` +
-      `font-family: ${s.fontFamily}; color: ${
-        s.fontColor
-      }; line-height: ${lh}; pointer-events: ${
-        this.pointerEvents ? this.pointerEventsValue : 'none'
+      `font-family: ${s.fontFamily}; color: ${s.fontColor
+      }; line-height: ${lh}; pointer-events: ${this.pointerEvents ? this.pointerEventsValue : 'none'
       }; `;
 
     const fontStyle = s.fontStyle;
