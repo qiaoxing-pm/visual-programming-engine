@@ -5,20 +5,22 @@ import type { CanvasCommand } from "./commands.js";
 import { mountNode, removeNode } from "./commands.js";
 import { applyDefaultNodePosition, deriveNodeViewModel } from "../../layout/NodeLayout.js";
 import { runInCommandContext } from "../../state/StateRules.js";
-import CanvasRenderer from "../../renderer/canvas/CanvasRenderer.js";
+import {
+    getNodeByCell as getNodeByCellInScene,
+    syncNode as syncSceneNode,
+    unmountNode as unmountSceneNode,
+} from "../../renderer/canvas/CanvasRenderer.js";
 import ConnectionBehavior from "../../interaction/ConnectionBehavior.js";
 import NodeViewModel from "../../view-model/NodeViewModel.js";
+import { createSceneState } from "../../state/SceneState.js";
 
 
 class CanvasAdapter {
 
     private graph: Graph | null = null;
-    private renderer = new CanvasRenderer();
     private nodeMap = new Map<string, BaseNode>();
     private nodeViewModelMap = new Map<string, NodeViewModel>();
-    private nodeCellMap = new Map<string, Cell>();
-    private cellNodeMap = new Map<Cell, BaseNode>();
-    private nodePortCellMap = new Map<string, Map<string, Cell>>();
+    private sceneState = createSceneState();
     private dirtyNodeIds = new Set<string>();
     private commitEvents = new EventTarget();
     private flushScheduled = false;
@@ -71,25 +73,21 @@ class CanvasAdapter {
                     return null;
                 }
                 const viewModel = this.syncDerivedViewModel(node);
-                return this.renderer.syncNode(
+                return syncSceneNode(
                     this.graph,
                     node,
                     viewModel,
-                    this.nodeCellMap,
-                    this.cellNodeMap,
-                    this.nodePortCellMap
+                    this.sceneState
                 );
             }
             case "remove_node": {
                 if (this.graph) {
                     const node = this.nodeMap.get(command.nodeId);
                     if (node) {
-                        this.renderer.unmountNode(
+                        unmountSceneNode(
                             this.graph,
                             node,
-                            this.nodeCellMap,
-                            this.cellNodeMap,
-                            this.nodePortCellMap
+                            this.sceneState
                         );
                     }
                 }
@@ -102,7 +100,7 @@ class CanvasAdapter {
     }
 
     getNodeByCell(cell: Cell) {
-        return this.renderer.getNodeByCell(cell, this.cellNodeMap);
+        return getNodeByCellInScene(cell, this.sceneState);
     }
 
     private syncDerivedViewModel(node: BaseNode) {

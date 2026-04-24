@@ -41,7 +41,11 @@ export default class ConnectionBehavior {
         };
         if (this.boundGraph !== graph) {
             this.isValidConnectionBase = graph.isValidConnection.bind(graph);
-            this.isCellConnectableBase = graphWithCellConnectable.isCellConnectable.bind(graph);
+            const baseIsCellConnectable = (graph as unknown as { isCellConnectable?: (cell: Cell) => boolean }).isCellConnectable;
+            this.isCellConnectableBase =
+                typeof baseIsCellConnectable === "function"
+                    ? baseIsCellConnectable.bind(graph)
+                    : () => true;
             this.applyDefaultEdgeStyle(graph);
             this.applyConnectionPreviewStyle(graph);
             this.applyEdgeWaypointBehavior(graph);

@@ -2,111 +2,86 @@ import type BaseNode from "../../core/node/BaseNode.js";
 import type { Cell } from "../../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../../packages/maxGraph/core/src/index.js";
 import type NodeViewModel from "../../view-model/NodeViewModel.js";
-import PortRenderer from "./PortRenderer.js";
+import type { SceneState } from "../../state/SceneState.js";
+import { releaseNodePorts, syncNodePorts } from "./PortRenderer.js";
 import { updateCellPosition } from "../utils/canvasGraphOps.js";
 import type { CellStyle } from "../../packages/maxGraph/core/src/index.js";
 
-export default class CanvasRenderer {
-    private portRenderer = new PortRenderer();
+const nodeWidth = 100;
+const nodeHeight = 80;
 
-    private readonly nodeWidth = 100;
-    private readonly nodeHeight = 80;
+const nodeStyle: CellStyle = {
+    shape: "rectangle",
+    fillColor: "#2e3038",
+    strokeColor: "white",
+    labelPosition: "center",
+    // align: "center",
+    spacingLeft: 6,
+    verticalAlign: 'top',
+    fontColor: "#fff",
+    fontSize: 8,
+    spacingRight: 6,
+    rounded: true,          // ✅ 开启圆角
+    arcSize: 12,
+};
 
-    private readonly nodeStyle: CellStyle = {
-        shape: "rectangle",
-        fillColor: "#2e3038",
-        strokeColor: "white",
-        labelPosition: "center",
-        // align: "center",
-        spacingLeft: 6,
-        verticalAlign: 'top',
-        fontColor: "#fff",
-        fontSize: 8,
-        spacingRight: 6,
-        rounded: true,          // ✅ 开启圆角
-        arcSize: 12,  
-    };
-
-    constructor() {
+export function syncNode(
+    graph: Graph,
+    node: BaseNode,
+    viewModel: NodeViewModel,
+    sceneState: SceneState
+) {
+    let cell = sceneState.nodeCellMap.get(node.id);
+    if (!cell) {
+        const parent = graph.getDefaultParent();
+        cell = graph.insertVertex(
+            parent,
+            node.id,
+            node.type,
+            viewModel.x,
+            viewModel.y,
+            nodeWidth,
+            nodeHeight,
+            nodeStyle
+        );
+        sceneState.nodeCellMap.set(node.id, cell);
+        sceneState.cellNodeMap.set(cell, node);
     }
-
-    syncNode(
-        graph: Graph,
-        node: BaseNode,
-        viewModel: NodeViewModel,
-        nodeCellMap: Map<string, Cell>,
-        cellNodeMap: Map<Cell, BaseNode>,
-        nodePortCellMap: Map<string, Map<string, Cell>>
-    ) {
-        let cell = nodeCellMap.get(node.id);
-        if (!cell) {
-            const parent = graph.getDefaultParent();
-            cell = graph.insertVertex(
-                parent,
-                node.id,
-                node.type,
-                viewModel.x,
-                viewModel.y,
-                this.nodeWidth,
-                this.nodeHeight,
-                this.nodeStyle
-            );
-            nodeCellMap.set(node.id, cell);
-            cellNodeMap.set(cell, node);
-        }
-        this.syncNodePosition(graph, cell, viewModel);
-        this.syncNodePorts(graph, node, cell, nodePortCellMap, cellNodeMap);
-        return cell;
+    syncNodePosition(graph, cell, viewModel);
+    const { added, removed } = syncNodePorts(graph, node, cell, sceneState);
+    for (const portCell of added) {
+        sceneState.cellNodeMap.set(portCell, node);
     }
-
-    unmountNode(
-        graph: Graph,
-        node: BaseNode,
-        nodeCellMap: Map<string, Cell>,
-        cellNodeMap: Map<Cell, BaseNode>,
-        nodePortCellMap: Map<string, Map<string, Cell>>
-    ) {
-        const cell = nodeCellMap.get(node.id);
-        if (!cell) {
-            return;
-        }
-        graph.removeCells([cell], false);
-        cellNodeMap.delete(cell);
-        nodeCellMap.delete(node.id);
-        const portCells = this.portRenderer.releaseNodePorts(node.id, nodePortCellMap);
-        for (const portCell of portCells) {
-            cellNodeMap.delete(portCell);
-        }
+    for (const portCell of removed) {
+        sceneState.cellNodeMap.delete(portCell);
     }
+    return cell;
+}
 
-    getNodeByCell(cell: Cell, cellNodeMap: Map<Cell, BaseNode>) {
-        return cellNodeMap.get(cell) ?? null;
+export function unmountNode(graph: Graph, node: BaseNode, sceneState: SceneState) {
+    const cell = sceneState.nodeCellMap.get(node.id);
+    if (!cell) {
+        return;
     }
-
-    private syncNodePorts(
-        graph: Graph,
-        node: BaseNode,
-        nodeCell: Cell,
-        nodePortCellMap: Map<string, Map<string, Cell>>,
-        cellNodeMap: Map<Cell, BaseNode>
-    ) {
-        const { added, removed } = this.portRenderer.syncNodePorts(graph, node, nodeCell, nodePortCellMap);
-        for (const cell of added) {
-            cellNodeMap.set(cell, node);
-        }
-        for (const cell of removed) {
-            cellNodeMap.delete(cell);
-        }
+    graph.removeCells([cell], false);
+    sceneState.cellNodeMap.delete(cell);
+    sceneState.nodeCellMap.delete(node.id);
+    const portCells = releaseNodePorts(node.id, sceneState);
+    for (const portCell of portCells) {
+        sceneState.cellNodeMap.delete(portCell);
     }
+}
 
-    private syncNodePosition(graph: Graph, cell: Cell, viewModel: NodeViewModel) {
-        const geometry = cell.getGeometry();
-        if (!geometry) {
-            return;
-        }
-        updateCellPosition(graph, cell, viewModel.x, viewModel.y);
+export function getNodeByCell(cell: Cell, sceneState: SceneState) {
+    return sceneState.cellNodeMap.get(cell) ?? null;
+}
+
+function syncNodePosition(graph: Graph, cell: Cell, viewModel: NodeViewModel) {
+    const geometry = cell.getGeometry();
+    if (!geometry) {
+        return;
     }
-
+    updateCellPosition(graph, cell, viewModel.x, viewModel.y);
 }
 
 
