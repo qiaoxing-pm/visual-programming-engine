@@ -4,12 +4,25 @@ import type { Graph } from "../../packages/maxGraph/core/src/index.js";
 import type NodeViewModel from "../../view-model/NodeViewModel.js";
 import PortRenderer from "./PortRenderer.js";
 import { updateCellPosition } from "../utils/canvasGraphOps.js";
+import type { CellStyle } from "../../packages/maxGraph/core/src/index.js";
 
 export default class CanvasRenderer {
     private portRenderer = new PortRenderer();
 
     private readonly nodeWidth = 100;
     private readonly nodeHeight = 80;
+
+    private readonly nodeStyle: CellStyle = {
+        shape: "rectangle",
+        fillColor: "#2e3038",
+        strokeColor: "white",
+        labelPosition: "center",
+        align: "center",
+        spacingLeft: 6,
+        spacingRight: 6,
+        rounded: true,          // ✅ 开启圆角
+        arcSize: 12,  
+    };
 
     constructor() {
     }
@@ -28,14 +41,17 @@ export default class CanvasRenderer {
             cell = graph.insertVertex(
                 parent,
                 node.id,
-                node.name,
+                '',
                 viewModel.x,
                 viewModel.y,
                 this.nodeWidth,
-                this.nodeHeight
+                this.nodeHeight,
+                this.nodeStyle
             );
             nodeCellMap.set(node.id, cell);
             cellNodeMap.set(cell, node);
+
+            cell.connectable = false;
         }
         this.syncNodePosition(graph, cell, viewModel);
         this.syncNodePorts(graph, node, cell, nodePortCellMap, cellNodeMap);

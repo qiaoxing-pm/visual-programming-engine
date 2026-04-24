@@ -23,19 +23,23 @@ export default class PortRenderer {
     private readonly inputPortX = -0.02;
     private readonly inputPortStyle: CellStyle = {
         shape: "ellipse",
-        fillColor: "#4c6ef5",
-        strokeColor: "#364fc7",
+        fillColor: "#1a192b",
+        strokeColor: "white",
         labelPosition: "right",
         align: "left",
-        spacingLeft: 6,
+        spacingLeft: 1,
+        fontColor: "#fff",
+        fontSize: 8,
     };
     private readonly outputPortStyle: CellStyle = {
         shape: "ellipse",
-        fillColor: "#2f9e44",
-        strokeColor: "#2b8a3e",
+        fillColor: "#1a192b",
+        strokeColor: "white",
         labelPosition: "left",
         align: "right",
-        spacingRight: 6,
+        spacingRight: 1,
+        fontColor: "#fff",
+        fontSize: 8,
     };
 
     syncNodePorts(
