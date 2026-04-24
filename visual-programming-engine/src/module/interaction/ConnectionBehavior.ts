@@ -1,7 +1,19 @@
 import type BaseNode from "../core/node/BaseNode.js";
 import type { Cell } from "../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../packages/maxGraph/core/src/index.js";
+import { BezierShape, CellRenderer } from "../packages/maxGraph/core/src/index.js";
 import { createInputPortKey, createOutputPortKey } from "../renderer/utils/port.js";
+
+const BEZIER_EDGE_SHAPE_NAME = "bezier";
+let isBezierShapeRegistered = false;
+
+function ensureBezierShapeRegistered() {
+    if (isBezierShapeRegistered) {
+        return;
+    }
+    CellRenderer.registerShape(BEZIER_EDGE_SHAPE_NAME, BezierShape);
+    isBezierShapeRegistered = true;
+}
 
 type PortDirection = "input" | "output";
 type PortConnectionMetadata = {
@@ -17,6 +29,7 @@ export default class ConnectionBehavior {
     bind(graph: Graph, getNodeByCell: (cell: Cell) => BaseNode | null) {
         if (this.boundGraph !== graph) {
             this.isValidConnectionBase = graph.isValidConnection.bind(graph);
+            this.applyDefaultEdgeStyle(graph);
             this.boundGraph = graph;
         }
 
@@ -41,6 +54,14 @@ export default class ConnectionBehavior {
             }
             return this.isValidConnectionBase?.(source, target) ?? true;
         };
+    }
+
+    private applyDefaultEdgeStyle(graph: Graph) {
+        ensureBezierShapeRegistered();
+        const defaultEdgeStyle = graph.getStylesheet().getDefaultEdgeStyle();
+        defaultEdgeStyle.shape = BEZIER_EDGE_SHAPE_NAME;
+        defaultEdgeStyle.startArrow = "none";
+        defaultEdgeStyle.endArrow = "none";
     }
 
     private resolvePortConnectionMetadata(
