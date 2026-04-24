@@ -1,12 +1,7 @@
 import type BaseNode from "../../core/node/BaseNode.js";
 import type { Cell } from "../../packages/maxGraph/core/src/index.js";
-import type { CellStyle } from "../../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../../packages/maxGraph/core/src/index.js";
-import {
-    createInputPortKey,
-    createOutputPortKey,
-    getRelativePortY,
-} from "../utils/port.js";
+import PortLayout from "../../layout/PortLayout.js";
 import {
     updateCellPosition,
     updateCellValue,
@@ -19,28 +14,7 @@ type PortSyncResult = {
 
 export default class PortRenderer {
     private readonly portSize = 4;
-    private readonly outputPortX = -0.02;
-    private readonly inputPortX = 0.98;
-    private readonly inputPortStyle: CellStyle = {
-        shape: "ellipse",
-        fillColor: "#1a192b",
-        strokeColor: "white",
-        labelPosition: "left",
-        align: "right",
-        spacingLeft: 1,
-        fontColor: "#fff",
-        fontSize: 8,
-    };
-    private readonly outputPortStyle: CellStyle = {
-        shape: "ellipse",
-        fillColor: "#1a192b",
-        strokeColor: "white",
-        labelPosition: "right",
-        align: "left",
-        spacingRight: 1,
-        fontColor: "#fff",
-        fontSize: 8,
-    };
+    private readonly portLayout = new PortLayout();
 
     syncNodePorts(
         graph: Graph,
@@ -52,60 +26,31 @@ export default class PortRenderer {
         const nextKeys = new Set<string>();
         const added: Cell[] = [];
         const removed: Cell[] = [];
+        const layoutItems = this.portLayout.compute(node);
 
-        const inputTotal = node.inputs.length;
-        const outputTotal = node.outputs.length;
-        const portSlotTotal = Math.max(inputTotal, outputTotal, 1);
-        node.outputs.forEach((port, idx) => {
-            const key = createOutputPortKey(idx, port.name);
+        for (const item of layoutItems) {
+            const key = item.key;
             nextKeys.add(key);
-            const y = getRelativePortY(idx, portSlotTotal);
             const existingPortCell = nodePortCells.get(key);
             if (existingPortCell) {
-                updateCellPosition(graph, existingPortCell, this.outputPortX, y);
-                updateCellValue(graph, existingPortCell, port.name);
-                return;
+                updateCellPosition(graph, existingPortCell, item.x, item.y);
+                updateCellValue(graph, existingPortCell, item.name);
+                continue;
             }
             const portCell = graph.insertVertex(
                 nodeCell,
                 `${node.id}:${key}`,
-                port.name,
-                this.outputPortX,
-                y,
+                item.name,
+                item.x,
+                item.y,
                 this.portSize,
                 this.portSize,
-                this.outputPortStyle,
+                item.style,
                 true
             );
             nodePortCells.set(key, portCell);
             added.push(portCell);
-        });
-        node.inputs.forEach((port, idx) => {
-            const key = createInputPortKey(idx, port.name);
-            nextKeys.add(key);
-            const y = getRelativePortY(idx, portSlotTotal);
-            const existingPortCell = nodePortCells.get(key);
-            if (existingPortCell) {
-                updateCellPosition(graph, existingPortCell, this.inputPortX, y);
-                updateCellValue(graph, existingPortCell, port.name);
-                return;
-            }
-            const portCell = graph.insertVertex(
-                nodeCell,
-                `${node.id}:${key}`,
-                port.name,
-                this.inputPortX,
-                y,
-                this.portSize,
-                this.portSize,
-                this.inputPortStyle,
-                true
-            );
-            nodePortCells.set(key, portCell);
-            added.push(portCell);
-        });
-
-
+        }
 
         for (const [key, cell] of nodePortCells.entries()) {
             if (nextKeys.has(key)) {

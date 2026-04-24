@@ -44,7 +44,7 @@ export default class CanvasRenderer {
             cell = graph.insertVertex(
                 parent,
                 node.id,
-                node.name,
+                node.type,
                 viewModel.x,
                 viewModel.y,
                 this.nodeWidth,
