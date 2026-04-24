@@ -6,19 +6,19 @@ import {
     patchNodePosition,
     removeNode,
 } from "../adapter/canvas/commands.js";
-import Node from "../demo_1/Node.js";
+// import Node from "../demo_1/Node.js";
 import { Graph } from "../packages/maxGraph/core/src";
+import {
+    TCP_CONNECT,
+    RTC,
+    INTEGRAL,
+    DERIVATIVE,
+    PID,
+    RAMP,
+    HYSTERESIS,
+} from "../core/node/instanceNode/additionalFunctionBlocks.js";
 
-const start = new Node('123');
-start.addOutput("output1", "string");
-start.addOutput("output2", "string");
-start.addOutput("output3", "string");
 
-const end = new Node('321');
-end.addInput("input1", "number");
-end.addInput("input2", "string");
-end.addInput("input3", "string");
-end.addInput("input4", "string");
 export default function Demo2() {
     const ref = useRef<HTMLDivElement>(null);
 
@@ -30,26 +30,26 @@ export default function Demo2() {
 
         const graph = new Graph(host);
         const adapter = new CanvasAdapter();
-        adapter.applyCanvas(graph);
-        adapter.execute(createNode(start));
-        adapter.execute(mountNode(start.id));
+        const nodes = [
+            TCP_CONNECT,
+            RTC,
+            INTEGRAL,
+            DERIVATIVE,
+            PID,
+            RAMP,
+            HYSTERESIS,
+        ]
 
-        adapter.execute(patchNodePosition(start.id, { x: 280, y: 120 }));
-        adapter.execute(mountNode(start.id));
+        nodes.forEach(node => {
+            adapter.applyCanvas(graph);
+            adapter.execute(createNode(node));
+            adapter.execute(mountNode(node.id));
 
-
-        adapter.applyCanvas(graph);
-        adapter.execute(createNode(end));
-        adapter.execute(mountNode(end.id));
-
-        adapter.execute(patchNodePosition(end.id, { x: 280, y: 120 }));
-        adapter.execute(mountNode(end.id));
-
+            adapter.execute(patchNodePosition(node.id, { x: 280, y: 120 }));
+            adapter.execute(mountNode(node.id));
+        });
 
         return () => {
-            // window.clearTimeout(timer);
-            adapter.execute(removeNode(start.id));
-            adapter.execute(removeNode(end.id));
             graph.destroy();
         };
     }, []);

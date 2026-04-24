@@ -17,8 +17,11 @@ export default class CanvasRenderer {
         fillColor: "#2e3038",
         strokeColor: "white",
         labelPosition: "center",
-        align: "center",
+        // align: "center",
         spacingLeft: 6,
+        verticalAlign: 'top',
+        fontColor: "#fff",
+        fontSize: 8,
         spacingRight: 6,
         rounded: true,          // ✅ 开启圆角
         arcSize: 12,  
@@ -41,7 +44,7 @@ export default class CanvasRenderer {
             cell = graph.insertVertex(
                 parent,
                 node.id,
-                '',
+                node.name,
                 viewModel.x,
                 viewModel.y,
                 this.nodeWidth,
