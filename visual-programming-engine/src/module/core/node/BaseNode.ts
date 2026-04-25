@@ -1,7 +1,10 @@
 import { InputPort, OutputPort } from "../port/Port.js";
-import type { ValueType, INamed } from "../type.js";
+import type { ValueType, INamed, positionType } from "../type.js";
 import { assertNodeMutableByCommand } from "../../state/StateRules.js";
 
+function hasValidPosition(position?: positionType): boolean {
+    return position?.x !== undefined || position?.y !== undefined;
+}
 abstract class BaseNode implements INamed {
     id: string;
     name: string;
@@ -17,10 +20,23 @@ abstract class BaseNode implements INamed {
 
     index: number = 0;
 
-    constructor(type: string, name: string) {
+    constructor(type: string, name: string, position?: positionType) {
         this.id = crypto.randomUUID();
         this.type = type;
         this.name = name;
+        if (hasValidPosition(position)) {
+            if (position?.x !== undefined) {
+                this.x = position.x;
+            }
+
+            if (position?.y !== undefined) {
+                this.y = position.y;
+            }
+
+            this.hasLayoutPosition = true;
+        } else {
+            this.hasLayoutPosition = false;
+        }
     }
 
     protected addInput(name: string, type: ValueType) {
@@ -44,6 +60,11 @@ abstract class BaseNode implements INamed {
             this.y = patch.y;
         }
         this.hasLayoutPosition = true;
+    }
+
+    applyNamePatch(name: string) {
+        assertNodeMutableByCommand("BaseNode.applyNamePatch");
+        this.name = name;
     }
 
     abstract execute(): Promise<any>;

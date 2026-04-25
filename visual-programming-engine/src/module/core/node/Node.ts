@@ -1,18 +1,19 @@
 import BaseNode from "./BaseNode.js";
-import type { ValueType } from "../type.js";
+import type { ValueType, positionType } from "../type.js";
+
+
+
 
 export default class Node extends BaseNode {
-    name: string = '';
 
-    constructor(type: string, name: string) {
-        super(type, name);
-        this.name = name;
+    constructor(type: string, name: string, position?: positionType) {
+        super(type, name, position);
     }
 
-    public addInput(name: string, type: ValueType) {
+    override addInput(name: string, type: ValueType) {
         return super.addInput(name, type);
     }
-    public addOutput(name: string, type: ValueType) {
+    override addOutput(name: string, type: ValueType) {
         return super.addOutput(name, type);
     }
 

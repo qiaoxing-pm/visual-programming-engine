@@ -3,11 +3,8 @@ import CanvasAdapter from "../module/adapter/canvas/CanvasAdapter.js";
 import {
     createNode,
     mountNode,
-    patchNodePosition,
-    removeNode,
 } from "../module/adapter/canvas/commands.js";
-// import Node from "../demo_1/Node.js";
-import { Graph } from "../module/packages/maxGraph/core/src/index.js";
+import { Graph } from "../module/packages/maxGraph/core/src";
 import {
     TCP_CONNECT,
     RTC,
@@ -17,6 +14,7 @@ import {
     RAMP,
     HYSTERESIS,
 } from "../module/core/node/instanceNode/additionalFunctionBlocks.js";
+import { CanvasHostBackground } from "../module/canvas-background/index.js";
 
 
 export default function Demo2() {
@@ -30,7 +28,18 @@ export default function Demo2() {
 
         const graph = new Graph(host);
         const adapter = new CanvasAdapter();
+        const canvasHostBackground = new CanvasHostBackground();
         adapter.applyCanvas(graph);
+        canvasHostBackground.bind(graph, host, {
+            showGrid: true,
+            gridSpacing: 12,
+            snapToGrid: true,
+            freeCanvas: true,
+            zoomEnabled: true,
+            minScale: 0.25,
+            maxScale: 3,
+            zoomStep: 0.12,
+        });
 
         const nodes = [
             TCP_CONNECT,
@@ -46,11 +55,12 @@ export default function Demo2() {
             adapter.execute(createNode(node));
             adapter.execute(mountNode(node.id));
 
-            adapter.execute(patchNodePosition(node.id, { x: 280, y: 120 }));
+            // adapter.execute(patchNodePosition(node.id, { x: 280, y: 120 }));
             adapter.execute(mountNode(node.id));
         });
 
         return () => {
+            canvasHostBackground.dispose();
             graph.destroy();
         };
     }, []);

@@ -1,4 +1,4 @@
-import Demo from './module/demo_2/index.tsx'
+import Demo from './demo_2/index.tsx'
 
 
 function App() {

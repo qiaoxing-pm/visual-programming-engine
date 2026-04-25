@@ -1,5 +1,8 @@
 import Node from "../../Node.js";
-const INTEGRAL = new Node('INTEGRAL','INTEGRAL');
+const INTEGRAL = new Node('INTEGRAL', 'INTEGRAL', {
+	x: 240,
+	y: 0,
+});
 
 
 INTEGRAL.addOutput("RUN", "string");

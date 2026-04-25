@@ -4,7 +4,13 @@ interface INamed {
 
 type ValueType = | 'number' | 'string' | 'boolean' | 'any' | 'flow';
 
+interface positionType {
+    x?: number;
+    y?: number;
+}
+
 export type {
     INamed,
-    ValueType
+    ValueType,
+    positionType,
 }

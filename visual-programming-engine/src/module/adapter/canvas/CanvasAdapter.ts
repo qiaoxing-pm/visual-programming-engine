@@ -13,6 +13,7 @@ import {
 import ConnectionBehavior from "../../interaction/ConnectionBehavior.js";
 import NodeViewModel from "../../view-model/NodeViewModel.js";
 import { createSceneState } from "../../state/SceneState.js";
+import Plugin from "../../plugin/plugin.js";
 
 
 class CanvasAdapter {
@@ -38,6 +39,7 @@ class CanvasAdapter {
 
     applyCanvas(graph: Graph) {
         this.graph = graph;
+        new Plugin(graph);
         this.connectionBehavior.bind(graph, (cell) => this.getNodeByCell(cell));
     }
 

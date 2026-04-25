@@ -1,5 +1,8 @@
 import Node from "../../Node.js";
-const TCP_CONNECT = new Node('TCP_CONNECT', 'TCP_CONNECT');
+const TCP_CONNECT = new Node('TCP_CONNECT', 'TCP_CONNECT', {
+	x: 120,
+	y: 200,
+});
 
 
 TCP_CONNECT.addOutput("CONNECT", "string");
