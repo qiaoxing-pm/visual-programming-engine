@@ -45,6 +45,14 @@ html, body, #root {
   background: #334155;
 }
 
+.left-toolbar__action--draggable {
+  cursor: grab;
+}
+
+.left-toolbar__action--draggable:active {
+  cursor: grabbing;
+}
+
 .editor-shell {
   flex: 1;
   min-width: 0;
