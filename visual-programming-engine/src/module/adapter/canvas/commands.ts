@@ -9,6 +9,12 @@ export type PatchNodePositionCommand = {
     };
 };
 
+export type PatchNodeNameCommand = {
+    type: "patch_node_name";
+    nodeId: string;
+    name: string;
+};
+
 export type CreateNodeCommand = {
     type: "create_node";
     node: BaseNode;
@@ -26,6 +32,7 @@ export type MountNodeCommand = {
 
 export type CanvasCommand =
     | PatchNodePositionCommand
+    | PatchNodeNameCommand
     | CreateNodeCommand
     | RemoveNodeCommand
     | MountNodeCommand;
@@ -37,6 +44,12 @@ export const patchNodePosition = (
     type: "patch_node_position",
     nodeId,
     patch,
+});
+
+export const patchNodeName = (nodeId: string, name: string): PatchNodeNameCommand => ({
+    type: "patch_node_name",
+    nodeId,
+    name,
 });
 
 export const createNode = (node: BaseNode): CreateNodeCommand => ({

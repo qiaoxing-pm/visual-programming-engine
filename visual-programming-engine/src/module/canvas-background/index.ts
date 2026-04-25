@@ -8,6 +8,7 @@ export {
     CANVAS_HOST_GRAPH_VIEW_EVENTS,
 } from "./events.js";
 export {
+    computeVisualGridSpacingPx,
     resolveCanvasHostBackgroundStyles,
     type CanvasViewTransform,
     type ResolvedHostBackgroundStyles,

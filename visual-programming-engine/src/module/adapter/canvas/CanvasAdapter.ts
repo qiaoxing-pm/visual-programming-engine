@@ -2,7 +2,7 @@ import type BaseNode from "../../core/node/BaseNode.js";
 import type { Cell } from "../../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../../packages/maxGraph/core/src/index.js";
 import type { CanvasCommand } from "./commands.js";
-import { mountNode, removeNode } from "./commands.js";
+import { mountNode, patchNodeName, patchNodePosition, removeNode } from "./commands.js";
 import { applyDefaultNodePosition, deriveNodeViewModel } from "../../layout/NodeLayout.js";
 import { runInCommandContext } from "../../state/StateRules.js";
 import {
@@ -11,8 +11,11 @@ import {
     unmountNode as unmountSceneNode,
 } from "../../renderer/canvas/CanvasRenderer.js";
 import ConnectionBehavior from "../../interaction/ConnectionBehavior.js";
+import DraggableBehavior from "../../interaction/DraggableBehavior.js";
 import NodeViewModel from "../../view-model/NodeViewModel.js";
 import { createSceneState } from "../../state/SceneState.js";
+import InternalEvent from "../../packages/maxGraph/core/src/view/event/InternalEvent.js";
+import { isTitleCellId } from "../../renderer/utils/title.js";
 import Plugin from "../../plugin/plugin.js";
 
 
@@ -26,7 +29,9 @@ class CanvasAdapter {
     private commitEvents = new EventTarget();
     private flushScheduled = false;
     private readonly connectionBehavior = new ConnectionBehavior();
-
+    private readonly draggableBehavior = new DraggableBehavior();
+    private labelChangedHandler: ((_: unknown, evt: any) => void) | null = null;
+    private plugin: Plugin | null = null;
     constructor() {
         this.commitEvents.addEventListener("viewmodel:dirty", () => {
             this.scheduleFlush();
@@ -38,9 +43,25 @@ class CanvasAdapter {
     }
 
     applyCanvas(graph: Graph) {
+        if (this.graph && this.labelChangedHandler) {
+            this.graph.removeListener(this.labelChangedHandler);
+        }
         this.graph = graph;
-        new Plugin(graph);
+        this.plugin = new Plugin(graph);
         this.connectionBehavior.bind(graph, (cell) => this.getNodeByCell(cell));
+        this.draggableBehavior.bind(
+            graph,
+            (cell) => this.getNodeByCell(cell),
+            (node, position) => {
+                this.execute(
+                    patchNodePosition(node.id, {
+                        x: position.x,
+                        y: position.y,
+                    })
+                );
+            }
+        );
+        this.bindTitleLabelEditing(graph);
     }
 
     execute(command: CanvasCommand) {
@@ -63,6 +84,17 @@ class CanvasAdapter {
                     node.applyPositionPatch(command.patch);
                 });
                 this.syncDerivedViewModel(node);
+                this.markNodeDirty(node.id);
+                return;
+            }
+            case "patch_node_name": {
+                const node = this.nodeMap.get(command.nodeId);
+                if (!node) {
+                    return;
+                }
+                runInCommandContext(() => {
+                    node.applyNamePatch(command.name);
+                });
                 this.markNodeDirty(node.id);
                 return;
             }
@@ -105,10 +137,46 @@ class CanvasAdapter {
         return getNodeByCellInScene(cell, this.sceneState);
     }
 
+    refreshThemeColors() {
+        const view = this.graph?.container.ownerDocument.defaultView;
+        const refresh = () => {
+            for (const nodeId of this.nodeMap.keys()) {
+                this.markNodeDirty(nodeId);
+            }
+        };
+
+        if (view) {
+            view.requestAnimationFrame(refresh);
+            return;
+        }
+
+        refresh();
+    }
+
     private syncDerivedViewModel(node: BaseNode) {
         const viewModel = deriveNodeViewModel(node);
         this.nodeViewModelMap.set(node.id, viewModel);
         return viewModel;
+    }
+
+    private bindTitleLabelEditing(graph: Graph) {
+        this.labelChangedHandler = (_, evt) => {
+            const cell = evt.getProperty("cell") as Cell | null;
+            const value = evt.getProperty("value");
+            if (!cell || !isTitleCellId(cell.getId())) {
+                return;
+            }
+            const node = this.getNodeByCell(cell);
+            if (!node) {
+                return;
+            }
+            const nextName = typeof value === "string" ? value.trim() : String(value ?? "").trim();
+            if (!nextName || node.name === nextName) {
+                return;
+            }
+            this.execute(patchNodeName(node.id, nextName));
+        };
+        graph.addListener(InternalEvent.LABEL_CHANGED, this.labelChangedHandler);
     }
 
     private markNodeDirty(nodeId: string) {
