@@ -59,6 +59,8 @@ export default class ConnectionBehavior {
 
         graph.setConnectable(true);
         graph.setAllowDanglingEdges(false);
+        graph.keepEdgesInBackground = true;
+        graph.keepEdgesInForeground = false;
         graph.isValidSource = (cell) => {
             const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell) !== null;
             if (!isPort) {
@@ -140,6 +142,8 @@ export default class ConnectionBehavior {
                 ...style,
                 sc,
             } as any);
+            // Keep the new edge behind ports/nodes even if insertion order changes.
+            graph.orderCells(true, [edge]);
         });
     }
 
