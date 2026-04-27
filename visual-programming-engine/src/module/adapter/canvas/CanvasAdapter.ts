@@ -16,7 +16,7 @@ import NodeViewModel from "../../view-model/NodeViewModel.js";
 import { createSceneState } from "../../state/SceneState.js";
 import InternalEvent from "../../packages/maxGraph/core/src/view/event/InternalEvent.js";
 import { isTitleCellId } from "../../renderer/utils/title.js";
-import Plugin from "../../plugin/plugin.js";
+import Plugin from "../../plugin/Plugin.js";
 
 
 class CanvasAdapter {
