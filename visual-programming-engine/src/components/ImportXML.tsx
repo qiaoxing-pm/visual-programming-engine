@@ -1,5 +1,6 @@
 import { type ChangeEvent, useRef } from "react";
 import { parseXML, readXMLFile, xmlToObject } from "../module/import/importXML";
+import { saveFBD, saveXmlData, getFBD } from "../store/action";
 
 function ImportXML() {
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -13,8 +14,11 @@ function ImportXML() {
             const xmlDoc = parseXML(xmlText);
             const result = xmlToObject(xmlDoc);
 
-            // TODO: Replace with graph import logic when schema is confirmed.
-            console.log("XML import result:", result.types.pous.pou[6].body.FBD);
+
+            saveFBD(result["types"]["pous"]["pou"][6]["body"]["FBD"]);
+            saveXmlData(result);
+
+            console.log(JSON.stringify(getFBD()));
         } catch (error) {
             console.error("XML import failed:", error);
         } finally {
