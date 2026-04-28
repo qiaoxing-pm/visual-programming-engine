@@ -1,6 +1,6 @@
 import type { DragEvent } from "react";
 import Demo from './demo_2/index.tsx'
-
+import ImportXML from './components/ImportXML.tsx'
 const NODE_TEMPLATE_DRAG_MIME = "application/x-vpe-node-template";
 const NODE_TEMPLATES = ["PID", "PID_FAST", "PID_SAFE"] as const;
 
@@ -15,6 +15,13 @@ function App() {
     <div className="page">
       <aside className="left-toolbar" aria-label="操作栏">
         <div className="left-toolbar__title">操作栏</div>
+        {/* <button
+
+          className="left-toolbar__action left-toolbar__action--draggable"
+        >载入
+          <input className="input-file" ></input>
+        </button> */}
+        <ImportXML />
         <div className="left-toolbar__title">可拖拽节点</div>
         {NODE_TEMPLATES.map((template) => (
           <button

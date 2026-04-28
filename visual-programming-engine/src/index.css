@@ -82,3 +82,7 @@ html, body, #root {
   overflow: hidden;
   text-align: left;
 }
+
+.input-file {
+  display: none;
+}
