@@ -1,5 +1,5 @@
 import BaseNode from "./BaseNode.js";
-import type { positionType } from "../type.js";
+import type { ValueType, positionType } from "../type.js";
 
 export type VirtualPortSide = 'left' | 'right';
 
@@ -12,12 +12,18 @@ export default class ForkNode extends BaseNode {
     leftConnections: Set<string>;   // 输入侧连接（edge ids）
     rightConnections: Set<string>;  // 输出侧连接（edge ids）
     readonly blockSelfLoop: boolean;
+    readonly portType: ValueType;
 
-    constructor(name = "Fork", position?: positionType, options?: { blockSelfLoop?: boolean }) {
+    constructor(
+        name = "Fork",
+        position?: positionType,
+        options?: { blockSelfLoop?: boolean; portType?: ValueType }
+    ) {
         super("FORK", name, position);
         this.leftConnections = new Set<string>();
         this.rightConnections = new Set<string>();
         this.blockSelfLoop = options?.blockSelfLoop ?? true;
+        this.portType = options?.portType ?? "any";
     }
 
     addConnection(side: VirtualPortSide, edgeId: string) {

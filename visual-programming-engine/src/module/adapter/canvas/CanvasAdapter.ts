@@ -2,6 +2,7 @@ import type BaseNode from "../../core/node/BaseNode.js";
 import ForkNode from "../../core/node/ForkNode.js";
 import type { Cell, MouseListenerSet } from "../../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../../packages/maxGraph/core/src/index.js";
+import type ConnectionHandler from "../../packages/maxGraph/core/src/view/handler/ConnectionHandler.js";
 import type { CanvasCommand } from "./commands.js";
 import { createNode, mountNode, patchNodeName, patchNodePosition, removeNode } from "./commands.js";
 import { applyDefaultNodePosition, deriveNodeViewModel } from "../../layout/NodeLayout.js";
@@ -211,7 +212,12 @@ class CanvasAdapter {
         if (outputMetadata.direction !== "output" || inputMetadata.direction !== "input") {
             return false;
         }
-        const forkNode = new ForkNode("Fork", point);
+        if (outputMetadata.type !== inputMetadata.type) {
+            return false;
+        }
+        const forkNode = new ForkNode("Fork", point, {
+            portType: outputMetadata.type,
+        });
         this.execute(createNode(forkNode));
         this.execute(mountNode(forkNode.id));
         const forkLeft = this.getForkHandleCell(forkNode.id, FORK_LEFT_HANDLE_KEY);
@@ -274,7 +280,7 @@ class CanvasAdapter {
                 this.updateForkHoverFromCell(me.getCell());
             },
             mouseUp: () => {
-                // no-op
+                this.updateForkHoverFromCell(null);
             },
         };
         graph.addMouseListener(this.forkHoverMouseListener);
@@ -282,6 +288,9 @@ class CanvasAdapter {
 
     private updateForkHoverFromCell(cell: Cell | null) {
         const nextHoveredForkNodeId = this.resolveHoveredForkCoreNodeId(cell);
+        if (this.isForkConnectionInProgress() && this.hoveredForkNodeId && !nextHoveredForkNodeId) {
+            return;
+        }
         if (nextHoveredForkNodeId === this.hoveredForkNodeId) {
             return;
         }
@@ -292,6 +301,14 @@ class CanvasAdapter {
         if (this.hoveredForkNodeId) {
             this.setForkHandlesVisible(this.hoveredForkNodeId, true);
         }
+    }
+
+    private isForkConnectionInProgress() {
+        if (!this.graph) {
+            return false;
+        }
+        const connectionHandler = this.graph.getPlugin<ConnectionHandler>("ConnectionHandler");
+        return connectionHandler?.isConnecting() ?? false;
     }
 
     private resolveHoveredForkCoreNodeId(cell: Cell | null) {
@@ -327,7 +344,14 @@ class CanvasAdapter {
             return;
         }
         for (const cell of partCells.values()) {
-            this.graph.getDataModel().setVisible(cell, visible);
+            const currentStyle = (cell.getStyle() ?? {}) as Record<string, any>;
+            this.graph.getDataModel().setStyle(cell, {
+                ...currentStyle,
+                opacity: visible ? 100 : 0,
+                fillOpacity: visible ? 100 : 0,
+                strokeOpacity: visible ? 100 : 0,
+                pointerEvents: visible,
+            } as any);
         }
     }
 

@@ -16,6 +16,7 @@ import CellState from "../packages/maxGraph/core/src/view/cell/CellState.js";
 import GeometryChange from "../packages/maxGraph/core/src/view/undoable_changes/GeometryChange.js";
 import BezierShape2 from "../packages/maxGraph/core/src/view/geometry/edge/BezierShape2.js";
 import { createInputPortKey, createOutputPortKey } from "../renderer/utils/port.js";
+import type { ValueType } from "../core/type.js";
 
 const BEZIER_EDGE_SHAPE_NAME = "bezier";
 let isBezierShapeRegistered = false;
@@ -37,7 +38,7 @@ type ForkTriggerSide = "left" | "right";
 type PortConnectionMetadata = {
     nodeId: string;
     direction: PortDirection;
-    type: string;
+    type: ValueType;
 };
 type InsertForkAtEdgeCallback = (edge: Cell, point: { x: number; y: number }) => boolean;
 
@@ -102,7 +103,7 @@ export default class ConnectionBehavior {
         graph.keepEdgesInBackground = true;
         graph.keepEdgesInForeground = false;
         graph.isValidSource = (cell) => {
-            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell) !== null;
+            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell, "source") !== null;
             if (!isPort) {
                 return false;
             }
@@ -112,7 +113,7 @@ export default class ConnectionBehavior {
             if (!cell) {
                 return false;
             }
-            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell) !== null;
+            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell, "source") !== null;
             if (!isPort) {
                 return false;
             }
@@ -769,19 +770,20 @@ export default class ConnectionBehavior {
         }
 
         if (node instanceof ForkNode) {
+            const forkPortType = node.portType;
             const leftHandleId = `${node.id}:${FORK_LEFT_HANDLE_KEY}`;
             if (cellId === leftHandleId) {
-                return { nodeId: node.id, direction: "input", type: "any" };
+                return { nodeId: node.id, direction: "input", type: forkPortType };
             }
             const rightHandleId = `${node.id}:${FORK_RIGHT_HANDLE_KEY}`;
             if (cellId === rightHandleId) {
-                return { nodeId: node.id, direction: "output", type: "any" };
+                return { nodeId: node.id, direction: "output", type: forkPortType };
             }
             if (cellId === node.id && treatForkCoreAs) {
                 return {
                     nodeId: node.id,
                     direction: treatForkCoreAs === "source" ? "output" : "input",
-                    type: "any",
+                    type: forkPortType,
                 };
             }
         }
@@ -844,7 +846,7 @@ export default class ConnectionBehavior {
         return {
             nodeId: node.id,
             direction: forkSide === "right" ? "output" : "input",
-            type: "any",
+            type: node.portType,
         };
     }
 

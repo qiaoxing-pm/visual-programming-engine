@@ -36,6 +36,10 @@ const forkHandleStyle: CellStyle = {
     arcSize: 12,
     align: "center",
     verticalAlign: "middle",
+    opacity: 0,
+    fillOpacity: 0,
+    strokeOpacity: 0,
+    pointerEvents: false,
 };
 
 function getResolvedForkNodeStyle(graph: Graph): CellStyle {
@@ -133,7 +137,6 @@ function ensureForkHandle(
         forkHandleStyle,
         relative
     );
-    graph.getDataModel().setVisible(handleCell, false);
     partCells.set(key, handleCell);
     sceneState.cellNodeMap.set(handleCell, node);
 }
