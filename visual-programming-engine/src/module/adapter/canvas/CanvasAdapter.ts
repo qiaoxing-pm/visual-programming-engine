@@ -1,6 +1,6 @@
 import type BaseNode from "../../core/node/BaseNode.js";
 import ForkNode from "../../core/node/ForkNode.js";
-import type { Cell } from "../../packages/maxGraph/core/src/index.js";
+import type { Cell, MouseListenerSet } from "../../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../../packages/maxGraph/core/src/index.js";
 import type { CanvasCommand } from "./commands.js";
 import { createNode, mountNode, patchNodeName, patchNodePosition, removeNode } from "./commands.js";
@@ -16,6 +16,7 @@ import DraggableBehavior from "../../interaction/DraggableBehavior.js";
 import NodeViewModel from "../../view-model/NodeViewModel.js";
 import { createSceneState } from "../../state/SceneState.js";
 import InternalEvent from "../../packages/maxGraph/core/src/view/event/InternalEvent.js";
+import type InternalMouseEvent from "../../packages/maxGraph/core/src/view/event/InternalMouseEvent.js";
 import { isTitleCellId } from "../../renderer/utils/title.js";
 import Plugin from "../../plugin/Plugin.js";
 import { FORK_LEFT_HANDLE_KEY, FORK_RIGHT_HANDLE_KEY } from "../../layout/ForkLayout.js";
@@ -32,6 +33,8 @@ class CanvasAdapter {
     private flushScheduled = false;
     private readonly connectionBehavior = new ConnectionBehavior();
     private readonly draggableBehavior = new DraggableBehavior();
+    private forkHoverMouseListener: MouseListenerSet | null = null;
+    private hoveredForkNodeId: string | null = null;
     private labelChangedHandler: ((_: unknown, evt: any) => void) | null = null;
     private plugin: Plugin | null = null;
     constructor() {
@@ -47,6 +50,10 @@ class CanvasAdapter {
     applyCanvas(graph: Graph) {
         if (this.graph && this.labelChangedHandler) {
             this.graph.removeListener(this.labelChangedHandler);
+        }
+        if (this.graph && this.forkHoverMouseListener) {
+            this.graph.removeMouseListener(this.forkHoverMouseListener);
+            this.forkHoverMouseListener = null;
         }
         this.graph = graph;
         this.plugin = new Plugin(graph);
@@ -70,6 +77,7 @@ class CanvasAdapter {
             }
         );
         this.bindTitleLabelEditing(graph);
+        this.bindForkHoverBehavior(graph);
     }
 
     execute(command: CanvasCommand) {
@@ -247,6 +255,63 @@ class CanvasAdapter {
             this.execute(patchNodeName(node.id, nextName));
         };
         graph.addListener(InternalEvent.LABEL_CHANGED, this.labelChangedHandler);
+    }
+
+    private bindForkHoverBehavior(graph: Graph) {
+        this.forkHoverMouseListener = {
+            mouseDown: () => {
+                // no-op
+            },
+            mouseMove: (_sender, me: InternalMouseEvent) => {
+                this.updateForkHoverFromCell(me.getCell());
+            },
+            mouseUp: () => {
+                // no-op
+            },
+        };
+        graph.addMouseListener(this.forkHoverMouseListener);
+    }
+
+    private updateForkHoverFromCell(cell: Cell | null) {
+        const nextHoveredForkNodeId = this.resolveHoveredForkCoreNodeId(cell);
+        if (nextHoveredForkNodeId === this.hoveredForkNodeId) {
+            return;
+        }
+        if (this.hoveredForkNodeId) {
+            this.setForkHandlesVisible(this.hoveredForkNodeId, false);
+        }
+        this.hoveredForkNodeId = nextHoveredForkNodeId;
+        if (this.hoveredForkNodeId) {
+            this.setForkHandlesVisible(this.hoveredForkNodeId, true);
+        }
+    }
+
+    private resolveHoveredForkCoreNodeId(cell: Cell | null) {
+        if (!cell) {
+            return null;
+        }
+        const node = this.getNodeByCell(cell);
+        if (!(node instanceof ForkNode)) {
+            return null;
+        }
+        const coreCell = this.sceneState.nodeCellMap.get(node.id);
+        if (coreCell !== cell) {
+            return null;
+        }
+        return node.id;
+    }
+
+    private setForkHandlesVisible(nodeId: string, visible: boolean) {
+        if (!this.graph) {
+            return;
+        }
+        const partCells = this.sceneState.forkPartCellMap.get(nodeId);
+        if (!partCells || partCells.size === 0) {
+            return;
+        }
+        for (const cell of partCells.values()) {
+            this.graph.getDataModel().setVisible(cell, visible);
+        }
     }
 
     private markNodeDirty(nodeId: string) {

@@ -133,6 +133,7 @@ function ensureForkHandle(
         forkHandleStyle,
         relative
     );
+    graph.getDataModel().setVisible(handleCell, false);
     partCells.set(key, handleCell);
     sceneState.cellNodeMap.set(handleCell, node);
 }
