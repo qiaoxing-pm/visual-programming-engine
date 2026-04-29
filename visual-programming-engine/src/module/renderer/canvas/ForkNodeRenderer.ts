@@ -24,6 +24,7 @@ const forkNodeStyle: CellStyle = {
     arcSize: 12,
     align: "center",
     verticalAlign: "middle",
+    perimeter: null,
 };
 
 const forkHandleStyle: CellStyle = {

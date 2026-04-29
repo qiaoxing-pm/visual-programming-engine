@@ -220,9 +220,10 @@ class CanvasAdapter {
         });
         this.execute(createNode(forkNode));
         this.execute(mountNode(forkNode.id));
+        const coreCell = this.sceneState.nodeCellMap.get(forkNode.id) ?? null;
         const forkLeft = this.getForkHandleCell(forkNode.id, FORK_LEFT_HANDLE_KEY);
         const forkRight = this.getForkHandleCell(forkNode.id, FORK_RIGHT_HANDLE_KEY);
-        if (!forkLeft || !forkRight) {
+        if (!forkLeft || !forkRight || !coreCell) {
             return false;
         }
 
@@ -231,20 +232,35 @@ class CanvasAdapter {
         model.beginUpdate();
         try {
             model.setTerminal(edge, outputTerminal, true);
-            model.setTerminal(edge, forkLeft, false);
+            model.setTerminal(edge, coreCell, false);
             const nextGeometry = edge.getGeometry()?.clone();
             if (nextGeometry) {
                 nextGeometry.points = null;
                 model.setGeometry(edge, nextGeometry);
             }
-            this.graph.insertEdge(
+            model.setStyle(edge, {
+                ...style,
+                entryX: 0.5,
+                entryY: 0.5,
+                entryPerimeter: false,
+            });
+            const newEdge = this.graph.insertEdge(
                 this.graph.getDefaultParent(),
                 null,
                 edge.getValue(),
-                forkRight,
+                coreCell,
                 inputTerminal,
                 style
             );
+            if (newEdge) {
+                const newStyle = newEdge.getStyle();
+                model.setStyle(newEdge, {
+                    ...newStyle,
+                    exitX: 0.5,
+                    exitY: 0.5,
+                    exitPerimeter: false,
+                });
+            }
         } finally {
             model.endUpdate();
         }

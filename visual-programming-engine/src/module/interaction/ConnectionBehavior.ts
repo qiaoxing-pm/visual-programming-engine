@@ -103,7 +103,7 @@ export default class ConnectionBehavior {
         graph.keepEdgesInBackground = true;
         graph.keepEdgesInForeground = false;
         graph.isValidSource = (cell) => {
-            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell, "source") !== null;
+            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell) !== null;
             if (!isPort) {
                 return false;
             }
@@ -113,15 +113,15 @@ export default class ConnectionBehavior {
             if (!cell) {
                 return false;
             }
-            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell, "source") !== null;
+            const isPort = this.resolvePortConnectionMetadata(cell, getNodeByCell) !== null;
             if (!isPort) {
                 return false;
             }
             return this.isCellConnectableBase?.(cell) ?? true;
         };
         graph.isValidConnection = (source, target) => {
-            const sourcePort = this.resolvePortConnectionMetadata(source, getNodeByCell, "source");
-            const targetPort = this.resolvePortConnectionMetadata(target, getNodeByCell, "target");
+            const sourcePort = this.resolvePortConnectionMetadata(source, getNodeByCell);
+            const targetPort = this.resolvePortConnectionMetadata(target, getNodeByCell);
             if (!sourcePort || !targetPort) {
                 return false;
             }
@@ -160,12 +160,6 @@ export default class ConnectionBehavior {
             connectionHandler.mouseDown = (sender, me) => {
                 const sourceTrigger = this.resolveForkTriggerByCell(connectionHandler.previous?.cell ?? null);
                 this.activeForkSourceSide = sourceTrigger?.side ?? null;
-                if (sourceTrigger) {
-                    const coreState = graph.getView().getState(sourceTrigger.coreCell);
-                    if (coreState) {
-                        connectionHandler.previous = coreState;
-                    }
-                }
                 baseMouseDown(sender, me);
             };
             this.connectionHandlerMouseDownPatched = true;
@@ -221,6 +215,17 @@ export default class ConnectionBehavior {
                     sourceCoreCell,
                     effectiveSourceSide
                 );
+                // Set connection point to center for ForkNode core
+                if (sourceForkTrigger) {
+                    nextStyle.exitX = 0.5;
+                    nextStyle.exitY = 0.5;
+                    nextStyle.exitPerimeter = false;
+                }
+                if (targetForkTrigger) {
+                    nextStyle.entryX = 0.5;
+                    nextStyle.entryY = 0.5;
+                    nextStyle.entryPerimeter = false;
+                }
                 graph.getDataModel().setStyle(edge, {
                     ...nextStyle,
                     sc,
@@ -750,8 +755,7 @@ export default class ConnectionBehavior {
 
     private resolvePortConnectionMetadata(
         cell: Cell | null,
-        getNodeByCell: (cell: Cell) => BaseNode | null,
-        treatForkCoreAs: "source" | "target" | null = null
+        getNodeByCell: (cell: Cell) => BaseNode | null
     ): PortConnectionMetadata | null {
         if (!cell) {
             return null;
@@ -779,13 +783,6 @@ export default class ConnectionBehavior {
             if (cellId === rightHandleId) {
                 return { nodeId: node.id, direction: "output", type: forkPortType };
             }
-            if (cellId === node.id && treatForkCoreAs) {
-                return {
-                    nodeId: node.id,
-                    direction: treatForkCoreAs === "source" ? "output" : "input",
-                    type: forkPortType,
-                };
-            }
         }
 
         for (const [idx, port] of node.inputs.entries()) {
@@ -812,7 +809,7 @@ export default class ConnectionBehavior {
         if (!sourceCell || !this.nodeResolver) {
             return 1;
         }
-        const sourceMetadata = this.resolvePortConnectionMetadata(sourceCell, this.nodeResolver, "source");
+        const sourceMetadata = this.resolvePortConnectionMetadata(sourceCell, this.nodeResolver);
         if (!sourceMetadata) {
             return 1;
         }
@@ -830,8 +827,7 @@ export default class ConnectionBehavior {
         getNodeByCell: (cell: Cell) => BaseNode | null
     ) {
         const terminal = edge.getTerminal(isSource);
-        const terminalRole: "source" | "target" = isSource ? "source" : "target";
-        const metadata = this.resolvePortConnectionMetadata(terminal, getNodeByCell, terminalRole);
+        const metadata = this.resolvePortConnectionMetadata(terminal, getNodeByCell);
         if (metadata) {
             return metadata;
         }
