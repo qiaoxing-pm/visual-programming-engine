@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type BaseNode from "../module/core/node/BaseNode.js";
 import Node from "../module/core/node/Node.js";
+import ForkNode from "../module/core/node/ForkNode.js";
 import CanvasAdapter from "../module/adapter/canvas/CanvasAdapter.js";
 import {
     createNode,
@@ -17,6 +18,9 @@ import ExternalDropBehavior from "../module/interaction/ExternalDropBehavior.js"
 const NODE_TEMPLATE_DRAG_MIME = "application/x-vpe-node-template";
 
 function cloneNodeFromTemplate(template: BaseNode, position: { x: number; y: number }) {
+    if (template instanceof ForkNode) {
+        return new ForkNode(template.name, position, { blockSelfLoop: template.blockSelfLoop });
+    }
     const next = new Node(template.type, template.name, position);
     for (const port of template.outputs) {
         next.addOutput(port.name, port.type);
@@ -26,6 +30,12 @@ function cloneNodeFromTemplate(template: BaseNode, position: { x: number; y: num
     }
     return next;
 }
+
+const FORK_TEMPLATE = new ForkNode("Fork");
+const NODE_TEMPLATE_MAP: Record<string, BaseNode> = {
+    PID,
+    FORK: FORK_TEMPLATE,
+};
 
 export default function Demo2() {
     const ref = useRef<HTMLDivElement>(null);
@@ -59,10 +69,11 @@ export default function Demo2() {
         externalDropBehavior.bind(host, graph, {
             mimeType: NODE_TEMPLATE_DRAG_MIME,
             onDrop: (payload, point) => {
-                if (payload !== "PID") {
+                const template = NODE_TEMPLATE_MAP[payload];
+                if (!template) {
                     return;
                 }
-                const node = cloneNodeFromTemplate(PID, { x: point.x, y: point.y });
+                const node = cloneNodeFromTemplate(template, { x: point.x, y: point.y });
                 adapter.execute(createNode(node));
                 adapter.execute(patchNodePosition(node.id, { x: point.x, y: point.y }));
                 adapter.execute(mountNode(node.id));

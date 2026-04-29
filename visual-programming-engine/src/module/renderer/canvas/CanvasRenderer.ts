@@ -1,10 +1,12 @@
 import type BaseNode from "../../core/node/BaseNode.js";
+import ForkNode from "../../core/node/ForkNode.js";
 import type { Cell } from "../../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../../packages/maxGraph/core/src/index.js";
 import type NodeViewModel from "../../view-model/NodeViewModel.js";
 import type { SceneState } from "../../state/SceneState.js";
 import { releaseNodePorts, syncNodePorts } from "./PortRenderer.js";
 import { releaseNodeCellTitles, syncNodeCellTitles } from "./CellTitleRenderer.js";
+import { releaseForkNode, syncForkNode } from "./ForkNodeRenderer.js";
 import { updateCellPosition,updateCellStyle, getNodeWidthAndHeight } from "../utils/canvasGraphOps.js";
 import type { CellStyle } from "../../packages/maxGraph/core/src/index.js";
 import {
@@ -40,6 +42,9 @@ export function syncNode(
     viewModel: NodeViewModel,
     sceneState: SceneState
 ) {
+    if (node instanceof ForkNode) {
+        return syncForkNode(graph, node, viewModel, sceneState);
+    }
     let cell = sceneState.nodeCellMap.get(node.id);
     const resolvedNodeStyle = getResolvedNodeStyle(graph);
     const nodeHeightAndWidth = getNodeWidthAndHeight(node);
@@ -94,6 +99,10 @@ export function unmountNode(graph: Graph, node: BaseNode, sceneState: SceneState
     const titleCells = releaseNodeCellTitles(node.id, sceneState);
     for (const titleCell of titleCells) {
         sceneState.cellNodeMap.delete(titleCell);
+    }
+    const forkCells = releaseForkNode(node.id, sceneState);
+    for (const forkCell of forkCells) {
+        sceneState.cellNodeMap.delete(forkCell);
     }
 }
 

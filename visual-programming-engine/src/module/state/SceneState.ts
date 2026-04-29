@@ -6,6 +6,7 @@ export type SceneState = {
     cellNodeMap: Map<Cell, BaseNode>;
     nodePortCellMap: Map<string, Map<string, Cell>>;
     nodeTitleCellMap: Map<string, Map<string, Cell>>;
+    forkPartCellMap: Map<string, Map<string, Cell>>;
 };
 
 export function createSceneState(): SceneState {
@@ -14,5 +15,6 @@ export function createSceneState(): SceneState {
         cellNodeMap: new Map<Cell, BaseNode>(),
         nodePortCellMap: new Map<string, Map<string, Cell>>(),
         nodeTitleCellMap: new Map<string, Map<string, Cell>>(),
+        forkPartCellMap: new Map<string, Map<string, Cell>>(),
     };
 }

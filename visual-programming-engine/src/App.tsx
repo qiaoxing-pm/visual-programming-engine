@@ -2,11 +2,11 @@ import type { DragEvent } from "react";
 import Demo from './demo_2/index.tsx'
 import ImportXML from './components/ImportXML.tsx'
 const NODE_TEMPLATE_DRAG_MIME = "application/x-vpe-node-template";
-const NODE_TEMPLATES = ["PID", "PID_FAST", "PID_SAFE"] as const;
+const NODE_TEMPLATES = ["PID", "FORK", "PID_FAST", "PID_SAFE"] as const;
 
 function App() {
   const handleTemplateDragStart = (evt: DragEvent<HTMLButtonElement>, template: string) => {
-    evt.dataTransfer.setData(NODE_TEMPLATE_DRAG_MIME, "PID");
+    evt.dataTransfer.setData(NODE_TEMPLATE_DRAG_MIME, template);
     evt.dataTransfer.setData("text/plain", template);
     evt.dataTransfer.effectAllowed = "copy";
   };

@@ -1,8 +1,9 @@
 import type BaseNode from "../../core/node/BaseNode.js";
+import ForkNode from "../../core/node/ForkNode.js";
 import type { Cell } from "../../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../../packages/maxGraph/core/src/index.js";
 import type { CanvasCommand } from "./commands.js";
-import { mountNode, patchNodeName, patchNodePosition, removeNode } from "./commands.js";
+import { createNode, mountNode, patchNodeName, patchNodePosition, removeNode } from "./commands.js";
 import { applyDefaultNodePosition, deriveNodeViewModel } from "../../layout/NodeLayout.js";
 import { runInCommandContext } from "../../state/StateRules.js";
 import {
@@ -17,6 +18,7 @@ import { createSceneState } from "../../state/SceneState.js";
 import InternalEvent from "../../packages/maxGraph/core/src/view/event/InternalEvent.js";
 import { isTitleCellId } from "../../renderer/utils/title.js";
 import Plugin from "../../plugin/Plugin.js";
+import { FORK_LEFT_HANDLE_KEY, FORK_RIGHT_HANDLE_KEY } from "../../layout/ForkLayout.js";
 
 
 class CanvasAdapter {
@@ -48,7 +50,13 @@ class CanvasAdapter {
         }
         this.graph = graph;
         this.plugin = new Plugin(graph);
-        this.connectionBehavior.bind(graph, (cell) => this.getNodeByCell(cell));
+        this.connectionBehavior.bind(
+            graph,
+            (cell) => this.getNodeByCell(cell),
+            {
+                onInsertForkAtEdge: (edge, point) => this.insertForkOnEdge(edge, point),
+            }
+        );
         this.draggableBehavior.bind(
             graph,
             (cell) => this.getNodeByCell(cell),
@@ -157,6 +165,68 @@ class CanvasAdapter {
         const viewModel = deriveNodeViewModel(node);
         this.nodeViewModelMap.set(node.id, viewModel);
         return viewModel;
+    }
+
+    private getForkHandleCell(nodeId: string, handleKey: string) {
+        const partCells = this.sceneState.forkPartCellMap.get(nodeId);
+        return partCells?.get(handleKey) ?? null;
+    }
+
+    private insertForkOnEdge(edge: Cell, point: { x: number; y: number }) {
+        if (!this.graph || !this.graph.getDataModel().contains(edge)) {
+            return false;
+        }
+        const sourceCell = edge.getTerminal(true);
+        const targetCell = edge.getTerminal(false);
+        if (!sourceCell || !targetCell) {
+            return false;
+        }
+
+        const sourceMetadata = this.connectionBehavior.resolvePortMetadata(sourceCell, (cell) => this.getNodeByCell(cell));
+        const targetMetadata = this.connectionBehavior.resolvePortMetadata(targetCell, (cell) => this.getNodeByCell(cell));
+        if (!sourceMetadata || !targetMetadata) {
+            return false;
+        }
+
+        const outputTerminal = sourceMetadata.direction === "output" ? sourceCell : targetCell;
+        const inputTerminal = sourceMetadata.direction === "input" ? sourceCell : targetCell;
+        const outputMetadata = sourceMetadata.direction === "output" ? sourceMetadata : targetMetadata;
+        const inputMetadata = sourceMetadata.direction === "input" ? sourceMetadata : targetMetadata;
+        if (outputMetadata.direction !== "output" || inputMetadata.direction !== "input") {
+            return false;
+        }
+        const forkNode = new ForkNode("Fork", point);
+        this.execute(createNode(forkNode));
+        this.execute(mountNode(forkNode.id));
+        const forkLeft = this.getForkHandleCell(forkNode.id, FORK_LEFT_HANDLE_KEY);
+        const forkRight = this.getForkHandleCell(forkNode.id, FORK_RIGHT_HANDLE_KEY);
+        if (!forkLeft || !forkRight) {
+            return false;
+        }
+
+        const style = edge.getStyle();
+        const model = this.graph.getDataModel();
+        model.beginUpdate();
+        try {
+            model.setTerminal(edge, outputTerminal, true);
+            model.setTerminal(edge, forkLeft, false);
+            const nextGeometry = edge.getGeometry()?.clone();
+            if (nextGeometry) {
+                nextGeometry.points = null;
+                model.setGeometry(edge, nextGeometry);
+            }
+            this.graph.insertEdge(
+                this.graph.getDefaultParent(),
+                null,
+                edge.getValue(),
+                forkRight,
+                inputTerminal,
+                style
+            );
+        } finally {
+            model.endUpdate();
+        }
+        return true;
     }
 
     private bindTitleLabelEditing(graph: Graph) {

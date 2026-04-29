@@ -4,6 +4,10 @@ import AbstractCanvas2D from '../../canvas/AbstractCanvas2D.js';
 import CellState from "../../cell/CellState.js";
 import type StencilShape from "../node/StencilShape.js";
 
+const CURVE_DIRECTION_FORWARD = 1;
+const CURVE_DIRECTION_REVERSED = -1;
+const DEFAULT_CURVE_DIRECTION = CURVE_DIRECTION_FORWARD;
+
 // class BezierShape extends Shape {
 // 	cellState: CellState | null = null;
 
@@ -70,7 +74,13 @@ class BezierShape extends Shape {
       // Keep edge tangent direction stable from source side.
       // Do not recompute from dragged waypoint positions, otherwise
       // crossing over may flip the output-side curve direction.
-      const sc = (cellStyle.sc || 1) as 1 | -1;
+      const styleDirection = (cellStyle.sc || DEFAULT_CURVE_DIRECTION) as 1 | -1;
+      // maxGraph drawLinkPath direction in our engine is opposite to our edge style sign.
+      // Keep style semantics unchanged and flip only at render boundary.
+      const curveDirection =
+        styleDirection === CURVE_DIRECTION_FORWARD
+          ? CURVE_DIRECTION_REVERSED
+          : CURVE_DIRECTION_FORWARD;
       const edge = this.cellState.cell;
       const source = edge.source;
       let drawCircle = source && source.isEdge();
@@ -87,7 +97,7 @@ class BezierShape extends Shape {
         const p1 = pts[i + 1];
         c.begin();
         c.setStrokeColor(this.stroke);
-        c.drawLinkPath(p0.x, p0.y, p1.x, p1.y, sc);
+        c.drawLinkPath(p0.x, p0.y, p1.x, p1.y, curveDirection);
         c.stroke();
       }
     }

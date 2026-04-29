@@ -14,15 +14,15 @@ export type PortLayoutItem = {
 };
 
 export default class PortLayout {
-    private readonly outputPortX = -0.02;
-    private readonly inputPortX = 0.98;
+    private readonly outputPortX = 0.98;
+    private readonly inputPortX = -0.02;
     private readonly inputPortStyle: CellStyle = {
         shape: "ellipse",
         fillColor: "#1a192b",
         strokeColor: "white",
-        labelPosition: "left",
-        align: "right",
-        spacingLeft: 1,
+        labelPosition: "right",
+        align: "left",
+        spacingRight: 1,
         fontColor: "#fff",
         fontSize: 8,
     };
@@ -30,9 +30,9 @@ export default class PortLayout {
         shape: "ellipse",
         fillColor: "#1a192b",
         strokeColor: "white",
-        labelPosition: "right",
-        align: "left",
-        spacingRight: 1,
+        labelPosition: "left",
+        align: "right",
+        spacingLeft: 1,
         fontColor: "#fff",
         fontSize: 8,
     };

@@ -1,4 +1,6 @@
 import type BaseNode from "../core/node/BaseNode.js";
+import ForkNode from "../core/node/ForkNode.js";
+import { FORK_LEFT_HANDLE_KEY, FORK_RIGHT_HANDLE_KEY } from "../layout/ForkLayout.js";
 import type { Cell, MouseListenerSet } from "../packages/maxGraph/core/src/index.js";
 import type { CellStyle } from "../packages/maxGraph/core/src/index.js";
 import type { Graph } from "../packages/maxGraph/core/src/index.js";
@@ -12,9 +14,7 @@ import EdgeHandler from "../packages/maxGraph/core/src/view/handler/EdgeHandler.
 import type SelectionCellsHandler from "../packages/maxGraph/core/src/view/handler/SelectionCellsHandler.js";
 import CellState from "../packages/maxGraph/core/src/view/cell/CellState.js";
 import GeometryChange from "../packages/maxGraph/core/src/view/undoable_changes/GeometryChange.js";
-// import BezierShape from "../packages/maxGraph/core/src/view/geometry/edge/BezierShape.js";
 import BezierShape2 from "../packages/maxGraph/core/src/view/geometry/edge/BezierShape2.js";
-// import CellRenderer from "../packages/maxGraph/core/src/view/cell/CellRenderer.js";
 import { createInputPortKey, createOutputPortKey } from "../renderer/utils/port.js";
 
 const BEZIER_EDGE_SHAPE_NAME = "bezier";
@@ -36,6 +36,7 @@ type PortConnectionMetadata = {
     direction: PortDirection;
     type: string;
 };
+type InsertForkAtEdgeCallback = (edge: Cell, point: { x: number; y: number }) => boolean;
 
 export default class ConnectionBehavior {
     private isValidConnectionBase: ((source: Cell | null, target: Cell | null) => boolean) | null = null;
@@ -49,6 +50,7 @@ export default class ConnectionBehavior {
     private edgeExtensionPointAnchorX = new Map<Cell, number>();
     private edgeExtensionPointDragCell: Cell | null = null;
     private edgeExtensionPointDragGraph: Graph | null = null;
+    private insertForkAtEdge: InsertForkAtEdgeCallback | null = null;
     private edgeExtensionPointMouseListener: MouseListenerSet | null = null;
     private pendingEdgeExtensionPointSyncEdges = new Set<Cell>();
     private edgeExtensionPointSyncScheduled = false;
@@ -63,7 +65,11 @@ export default class ConnectionBehavior {
         resizable: false,
     };
 
-    bind(graph: Graph, getNodeByCell: (cell: Cell) => BaseNode | null) {
+    bind(
+        graph: Graph,
+        getNodeByCell: (cell: Cell) => BaseNode | null,
+        options?: { onInsertForkAtEdge?: InsertForkAtEdgeCallback }
+    ) {
         const graphWithCellConnectable = graph as Graph & {
             isCellConnectable: (cell: Cell) => boolean;
         };
@@ -84,6 +90,7 @@ export default class ConnectionBehavior {
             this.boundGraph = graph;
         }
         this.nodeResolver = getNodeByCell;
+        this.insertForkAtEdge = options?.onInsertForkAtEdge ?? null;
 
         graph.setConnectable(true);
         graph.setAllowDanglingEdges(false);
@@ -118,6 +125,25 @@ export default class ConnectionBehavior {
             if (sourcePort.type !== targetPort.type) {
                 return false;
             }
+            const sourceCellId = source?.getId() ?? "";
+            const targetCellId = target?.getId() ?? "";
+            const sourceIsForkLeft = sourceCellId.endsWith(`:${FORK_LEFT_HANDLE_KEY}`);
+            const sourceIsForkRight = sourceCellId.endsWith(`:${FORK_RIGHT_HANDLE_KEY}`);
+            const targetIsForkLeft = targetCellId.endsWith(`:${FORK_LEFT_HANDLE_KEY}`);
+            const targetIsForkRight = targetCellId.endsWith(`:${FORK_RIGHT_HANDLE_KEY}`);
+
+            if (sourceIsForkLeft || targetIsForkRight) {
+                return false;
+            }
+
+            if (sourceIsForkRight || targetIsForkLeft) {
+                const sourceToTargetMustBeOutputToInput =
+                    sourcePort.direction === "output" && targetPort.direction === "input";
+                if (!sourceToTargetMustBeOutputToInput) {
+                    return false;
+                }
+            }
+
             const isInputOutputPair =
                 (sourcePort.direction === "output" && targetPort.direction === "input") ||
                 (sourcePort.direction === "input" && targetPort.direction === "output");
@@ -191,6 +217,13 @@ export default class ConnectionBehavior {
 
             if (this.isEdgeExtensionPointEvent(nativeEvent)) {
                 this.addEdgeExtensionPoint(graph, cell, state, nativeEvent);
+                return;
+            }
+
+            const graphPoint = graph.getPointForEvent(nativeEvent, false);
+            const inserted = this.insertForkAtEdge?.(cell, { x: graphPoint.x, y: graphPoint.y }) ?? false;
+            if (inserted) {
+                evt.consume();
                 return;
             }
 
@@ -703,6 +736,17 @@ export default class ConnectionBehavior {
             return null;
         }
 
+        if (node instanceof ForkNode) {
+            const leftHandleId = `${node.id}:${FORK_LEFT_HANDLE_KEY}`;
+            if (cellId === leftHandleId) {
+                return { nodeId: node.id, direction: "input", type: "any" };
+            }
+            const rightHandleId = `${node.id}:${FORK_RIGHT_HANDLE_KEY}`;
+            if (cellId === rightHandleId) {
+                return { nodeId: node.id, direction: "output", type: "any" };
+            }
+        }
+
         for (const [idx, port] of node.inputs.entries()) {
             const candidateId = `${node.id}:${createInputPortKey(idx, port.name)}`;
             if (cellId === candidateId) {
@@ -730,5 +774,9 @@ export default class ConnectionBehavior {
         }
         // Keep existing default for input; reverse direction for output-start edges.
         return sourceMetadata.direction === "output" ? -1 : 1;
+    }
+
+    resolvePortMetadata(cell: Cell | null, getNodeByCell: (cell: Cell) => BaseNode | null) {
+        return this.resolvePortConnectionMetadata(cell, getNodeByCell);
     }
 }
