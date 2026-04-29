@@ -21,6 +21,8 @@ const BEZIER_EDGE_SHAPE_NAME = "bezier";
 let isBezierShapeRegistered = false;
 const EDGE_EXTENSION_POINT_SIZE = 6;
 const EDGE_EXTENSION_POINT_SAMPLES_PER_CURVE = 24;
+const FORK_SOURCE_SIDE_STYLE_KEY = "forkSourceSide";
+const FORK_TARGET_SIDE_STYLE_KEY = "forkTargetSide";
 
 function ensureBezierShapeRegistered() {
     if (isBezierShapeRegistered) {
@@ -31,6 +33,7 @@ function ensureBezierShapeRegistered() {
 }
 
 type PortDirection = "input" | "output";
+type ForkTriggerSide = "left" | "right";
 type PortConnectionMetadata = {
     nodeId: string;
     direction: PortDirection;
@@ -54,6 +57,8 @@ export default class ConnectionBehavior {
     private edgeExtensionPointMouseListener: MouseListenerSet | null = null;
     private pendingEdgeExtensionPointSyncEdges = new Set<Cell>();
     private edgeExtensionPointSyncScheduled = false;
+    private activeForkSourceSide: ForkTriggerSide | null = null;
+    private connectionHandlerMouseDownPatched = false;
     private readonly edgeExtensionPointStyle: CellStyle = {
         shape: "ellipse",
         fillColor: "#1a192b",
@@ -114,8 +119,8 @@ export default class ConnectionBehavior {
             return this.isCellConnectableBase?.(cell) ?? true;
         };
         graph.isValidConnection = (source, target) => {
-            const sourcePort = this.resolvePortConnectionMetadata(source, getNodeByCell);
-            const targetPort = this.resolvePortConnectionMetadata(target, getNodeByCell);
+            const sourcePort = this.resolvePortConnectionMetadata(source, getNodeByCell, "source");
+            const targetPort = this.resolvePortConnectionMetadata(target, getNodeByCell, "target");
             if (!sourcePort || !targetPort) {
                 return false;
             }
@@ -125,25 +130,6 @@ export default class ConnectionBehavior {
             if (sourcePort.type !== targetPort.type) {
                 return false;
             }
-            const sourceCellId = source?.getId() ?? "";
-            const targetCellId = target?.getId() ?? "";
-            const sourceIsForkLeft = sourceCellId.endsWith(`:${FORK_LEFT_HANDLE_KEY}`);
-            const sourceIsForkRight = sourceCellId.endsWith(`:${FORK_RIGHT_HANDLE_KEY}`);
-            const targetIsForkLeft = targetCellId.endsWith(`:${FORK_LEFT_HANDLE_KEY}`);
-            const targetIsForkRight = targetCellId.endsWith(`:${FORK_RIGHT_HANDLE_KEY}`);
-
-            if (sourceIsForkLeft || targetIsForkRight) {
-                return false;
-            }
-
-            if (sourceIsForkRight || targetIsForkLeft) {
-                const sourceToTargetMustBeOutputToInput =
-                    sourcePort.direction === "output" && targetPort.direction === "input";
-                if (!sourceToTargetMustBeOutputToInput) {
-                    return false;
-                }
-            }
-
             const isInputOutputPair =
                 (sourcePort.direction === "output" && targetPort.direction === "input") ||
                 (sourcePort.direction === "input" && targetPort.direction === "output");
@@ -168,16 +154,32 @@ export default class ConnectionBehavior {
         if (!connectionHandler) {
             return;
         }
+        if (!this.connectionHandlerMouseDownPatched) {
+            const baseMouseDown = connectionHandler.mouseDown.bind(connectionHandler);
+            connectionHandler.mouseDown = (sender, me) => {
+                const sourceTrigger = this.resolveForkTriggerByCell(connectionHandler.previous?.cell ?? null);
+                this.activeForkSourceSide = sourceTrigger?.side ?? null;
+                if (sourceTrigger) {
+                    const coreState = graph.getView().getState(sourceTrigger.coreCell);
+                    if (coreState) {
+                        connectionHandler.previous = coreState;
+                    }
+                }
+                baseMouseDown(sender, me);
+            };
+            this.connectionHandlerMouseDownPatched = true;
+        }
 
         connectionHandler.livePreview = true;
         connectionHandler.createEdgeState = () => {
             const sourceCell = connectionHandler.previous?.cell ?? null;
-            const sc = this.getDirectionScalarBySourceCell(sourceCell);
+            const sc = this.getDirectionScalarBySourceCell(sourceCell, this.activeForkSourceSide);
             const edge = graph.createEdge(null, "", null, null, null, {
                 shape: BEZIER_EDGE_SHAPE_NAME,
                 startArrow: "none",
                 endArrow: "none",
                 sc,
+                ...(this.activeForkSourceSide ? { [FORK_SOURCE_SIDE_STYLE_KEY]: this.activeForkSourceSide } : {}),
             } as any);
             return new CellState(graph.getView(), edge, graph.getCellStyle(edge));
         };
@@ -189,14 +191,43 @@ export default class ConnectionBehavior {
             if (!edge) {
                 return;
             }
-            this.snapEdgeExtensionPoints(graph, edge);
             const sourceCell = edge.getTerminal(true);
-            const sc = this.getDirectionScalarBySourceCell(sourceCell);
+            const targetCell = edge.getTerminal(false);
+            const sourceForkTrigger = this.resolveForkTriggerByCell(sourceCell);
+            const targetForkTrigger = this.resolveForkTriggerByCell(targetCell);
+            const sourceCoreCell = sourceForkTrigger?.coreCell ?? sourceCell;
+            const targetCoreCell = targetForkTrigger?.coreCell ?? targetCell;
             const style = edge.getStyle();
-            graph.getDataModel().setStyle(edge, {
-                ...style,
-                sc,
-            } as any);
+            const nextStyle = { ...style } as Record<string, any>;
+            const effectiveSourceSide =
+                sourceForkTrigger?.side ?? this.activeForkSourceSide ?? this.readForkTriggerSideFromEdgeStyle(style, true);
+            if (effectiveSourceSide) {
+                nextStyle[FORK_SOURCE_SIDE_STYLE_KEY] = effectiveSourceSide;
+            }
+            if (targetForkTrigger) {
+                nextStyle[FORK_TARGET_SIDE_STYLE_KEY] = targetForkTrigger.side;
+            }
+            graph.getDataModel().beginUpdate();
+            try {
+                if (sourceCoreCell !== sourceCell) {
+                    graph.getDataModel().setTerminal(edge, sourceCoreCell, true);
+                }
+                if (targetCoreCell !== targetCell) {
+                    graph.getDataModel().setTerminal(edge, targetCoreCell, false);
+                }
+                this.snapEdgeExtensionPoints(graph, edge);
+                const sc = this.getDirectionScalarBySourceCell(
+                    sourceCoreCell,
+                    effectiveSourceSide
+                );
+                graph.getDataModel().setStyle(edge, {
+                    ...nextStyle,
+                    sc,
+                } as any);
+            } finally {
+                graph.getDataModel().endUpdate();
+                this.activeForkSourceSide = null;
+            }
             // Keep the new edge behind ports/nodes even if insertion order changes.
             graph.orderCells(true, [edge]);
         });
@@ -696,8 +727,8 @@ export default class ConnectionBehavior {
         edge: Cell,
         getNodeByCell: (cell: Cell) => BaseNode | null
     ): PortConnectionMetadata | null {
-        const sourceMetadata = this.resolvePortConnectionMetadata(edge.getTerminal(true), getNodeByCell);
-        const targetMetadata = this.resolvePortConnectionMetadata(edge.getTerminal(false), getNodeByCell);
+        const sourceMetadata = this.resolvePortMetadataFromEdgeTerminal(edge, true, getNodeByCell);
+        const targetMetadata = this.resolvePortMetadataFromEdgeTerminal(edge, false, getNodeByCell);
         const inputMetadata =
             sourceMetadata?.direction === "input"
                 ? sourceMetadata
@@ -718,7 +749,8 @@ export default class ConnectionBehavior {
 
     private resolvePortConnectionMetadata(
         cell: Cell | null,
-        getNodeByCell: (cell: Cell) => BaseNode | null
+        getNodeByCell: (cell: Cell) => BaseNode | null,
+        treatForkCoreAs: "source" | "target" | null = null
     ): PortConnectionMetadata | null {
         if (!cell) {
             return null;
@@ -745,6 +777,13 @@ export default class ConnectionBehavior {
             if (cellId === rightHandleId) {
                 return { nodeId: node.id, direction: "output", type: "any" };
             }
+            if (cellId === node.id && treatForkCoreAs) {
+                return {
+                    nodeId: node.id,
+                    direction: treatForkCoreAs === "source" ? "output" : "input",
+                    type: "any",
+                };
+            }
         }
 
         for (const [idx, port] of node.inputs.entries()) {
@@ -764,11 +803,14 @@ export default class ConnectionBehavior {
         return null;
     }
 
-    private getDirectionScalarBySourceCell(sourceCell: Cell | null): 1 | -1 {
+    private getDirectionScalarBySourceCell(sourceCell: Cell | null, forkSourceSide?: ForkTriggerSide | null): 1 | -1 {
+        if (forkSourceSide) {
+            return forkSourceSide === "right" ? -1 : 1;
+        }
         if (!sourceCell || !this.nodeResolver) {
             return 1;
         }
-        const sourceMetadata = this.resolvePortConnectionMetadata(sourceCell, this.nodeResolver);
+        const sourceMetadata = this.resolvePortConnectionMetadata(sourceCell, this.nodeResolver, "source");
         if (!sourceMetadata) {
             return 1;
         }
@@ -778,5 +820,56 @@ export default class ConnectionBehavior {
 
     resolvePortMetadata(cell: Cell | null, getNodeByCell: (cell: Cell) => BaseNode | null) {
         return this.resolvePortConnectionMetadata(cell, getNodeByCell);
+    }
+
+    resolvePortMetadataFromEdgeTerminal(
+        edge: Cell,
+        isSource: boolean,
+        getNodeByCell: (cell: Cell) => BaseNode | null
+    ) {
+        const terminal = edge.getTerminal(isSource);
+        const terminalRole: "source" | "target" = isSource ? "source" : "target";
+        const metadata = this.resolvePortConnectionMetadata(terminal, getNodeByCell, terminalRole);
+        if (metadata) {
+            return metadata;
+        }
+        const forkSide = this.readForkTriggerSideFromEdgeStyle(edge.getStyle(), isSource);
+        if (!forkSide) {
+            return null;
+        }
+        const node = terminal ? getNodeByCell(terminal) : null;
+        if (!(node instanceof ForkNode)) {
+            return null;
+        }
+        return {
+            nodeId: node.id,
+            direction: forkSide === "right" ? "output" : "input",
+            type: "any",
+        };
+    }
+
+    private resolveForkTriggerByCell(cell: Cell | null): { side: ForkTriggerSide; coreCell: Cell } | null {
+        if (!cell) {
+            return null;
+        }
+        const cellId = cell.getId() ?? "";
+        if (cellId.endsWith(`:${FORK_LEFT_HANDLE_KEY}`)) {
+            const parent = cell.getParent();
+            return parent ? { side: "left", coreCell: parent } : null;
+        }
+        if (cellId.endsWith(`:${FORK_RIGHT_HANDLE_KEY}`)) {
+            const parent = cell.getParent();
+            return parent ? { side: "right", coreCell: parent } : null;
+        }
+        return null;
+    }
+
+    private readForkTriggerSideFromEdgeStyle(
+        style: Record<string, any> | null | undefined,
+        isSource: boolean
+    ): ForkTriggerSide | null {
+        const key = isSource ? FORK_SOURCE_SIDE_STYLE_KEY : FORK_TARGET_SIDE_STYLE_KEY;
+        const raw = style?.[key];
+        return raw === "left" || raw === "right" ? raw : null;
     }
 }

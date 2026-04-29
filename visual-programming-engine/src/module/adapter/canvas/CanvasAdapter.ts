@@ -190,8 +190,16 @@ class CanvasAdapter {
             return false;
         }
 
-        const sourceMetadata = this.connectionBehavior.resolvePortMetadata(sourceCell, (cell) => this.getNodeByCell(cell));
-        const targetMetadata = this.connectionBehavior.resolvePortMetadata(targetCell, (cell) => this.getNodeByCell(cell));
+        const sourceMetadata = this.connectionBehavior.resolvePortMetadataFromEdgeTerminal(
+            edge,
+            true,
+            (cell) => this.getNodeByCell(cell)
+        );
+        const targetMetadata = this.connectionBehavior.resolvePortMetadataFromEdgeTerminal(
+            edge,
+            false,
+            (cell) => this.getNodeByCell(cell)
+        );
         if (!sourceMetadata || !targetMetadata) {
             return false;
         }
@@ -294,11 +302,20 @@ class CanvasAdapter {
         if (!(node instanceof ForkNode)) {
             return null;
         }
-        const coreCell = this.sceneState.nodeCellMap.get(node.id);
-        if (coreCell !== cell) {
+        const coreCell = this.sceneState.nodeCellMap.get(node.id) ?? null;
+        if (coreCell === cell) {
+            return node.id;
+        }
+        const partCells = this.sceneState.forkPartCellMap.get(node.id);
+        if (!partCells || partCells.size === 0) {
             return null;
         }
-        return node.id;
+        for (const partCell of partCells.values()) {
+            if (partCell === cell) {
+                return node.id;
+            }
+        }
+        return null;
     }
 
     private setForkHandlesVisible(nodeId: string, visible: boolean) {
